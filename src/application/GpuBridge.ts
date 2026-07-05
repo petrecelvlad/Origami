@@ -18,7 +18,7 @@ import { Organism } from '../domain/types';
  * is directly visible in the overlay. Remove alongside every other "DIAGNOSTIC" tag once
  * the laptop bug is confirmed/fixed.
  */
-function describeYRange(org: Organism, label: string): string {
+export function describeYRange(org: Organism, label: string): string {
     let min = Infinity;
     let max = -Infinity;
     for (const n of org.nodes) {
@@ -35,7 +35,7 @@ function describeYRange(org: Organism, label: string): string {
  * node-index/data mapping rather than a merely-too-strong-but-sane force. Remove alongside
  * every other "DIAGNOSTIC" tag once the laptop bug is confirmed/fixed.
  */
-function describeMuscleAnomalies(org: Organism, label: string): string {
+export function describeMuscleAnomalies(org: Organism, label: string): string {
     let anomalyCount = 0;
     let worst: { id: string; base: number; current: number; ratio: number } | null = null;
 
