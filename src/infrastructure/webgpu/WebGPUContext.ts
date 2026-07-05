@@ -10,6 +10,10 @@
  * DIAGNOSTIC: renders diagnostic lines directly on-screen so they can be read off the
  * device without opening devtools. Remove this whole function once the laptop bug is
  * confirmed/fixed, along with every call site tagged "DIAGNOSTIC".
+ *
+ * Deliberately a single text node joined with " | " rather than one block/line per entry —
+ * selecting and copying text that spans separate block elements or literal newlines pastes
+ * as multiple Enter-separated lines, which truncates a paste into a terminal at the first line.
  */
 function showDiagnosticOverlay(line: string): void {
     console.log(`[WebGPU Diagnostic] ${line}`);
@@ -23,11 +27,11 @@ function showDiagnosticOverlay(line: string): void {
             'max-width:90vw', 'max-height:60vh', 'overflow:auto',
             'background:rgba(0,0,0,0.85)', 'color:#0f0',
             'font-family:monospace', 'font-size:12px', 'line-height:1.4',
-            'padding:8px', 'border-radius:4px', 'white-space:pre-wrap',
+            'padding:8px', 'border-radius:4px', 'white-space:normal', 'word-break:break-word',
         ].join(';');
         document.body.appendChild(overlay);
     }
-    overlay.textContent += line + '\n';
+    overlay.textContent = overlay.textContent ? `${overlay.textContent} | ${line}` : line;
 }
 /**
  * @propolis
