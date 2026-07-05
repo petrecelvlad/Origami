@@ -14,7 +14,8 @@ import { ENGINE_CONFIG } from '../domain/EngineConfig';
 import { GpuBridge, describeYRange, describeMuscleAnomalies } from './GpuBridge';
 import { showDiagnosticOverlay } from '../infrastructure/webgpu/WebGPUContext';
 
-const FRAMES = 90; // ~1.5 simulated seconds at the engine's fixed timeStep
+const FRAMES = 300; // ~5 simulated seconds -- long enough to reveal slow, cumulative drift
+const CHECKPOINTS = [30, 90, 180, 300]; // ~0.5s, 1.5s, 3s, 5s -- shows the trend, not just the endpoint
 const DT = ENGINE_CONFIG.physics.timeStep;
 
 function isFinitePosition(org: Organism): boolean {
@@ -28,17 +29,17 @@ function isFinitePosition(org: Organism): boolean {
  * clones of the same freshly-constructed organism, for the same number of frames with the same
  * physics parameters, then reports gross stability invariants for each — NOT a bit-for-bit
  * position diff. The two engines are intentionally different physics models (see
- * cone/agent/skills/gpu-cpu-parity-check/SKILL.md for the full list of known gaps: the GPU
- * shader has no tipping-force/rotational-drag stabilization, no self-collision resolution, no
- * shape-memory baseLength correction, and no head-touches-ground death rule). Expecting numeric
- * agreement would produce constant false positives; what actually matters is whether both
- * engines keep a properly-spawned creature standing, or whether one silently collapses it.
+ * cone/agent/skills/gpu-cpu-parity-check/SKILL.md for the current, maintained list of known
+ * gaps). Expecting numeric agreement would produce constant false positives; what actually
+ * matters is whether both engines keep a properly-spawned creature standing, or whether one
+ * silently collapses it.
  */
 export async function runParityHarness(): Promise<void> {
     showDiagnosticOverlay('=== PARITY HARNESS START ===');
     showDiagnosticOverlay(
-        'Known gaps (expected divergence, not bugs): GPU has no tipping-force/rotational-drag ' +
-        'stabilization, no self-collision, no shape-memory baseLength pull, no head-death-on-ground rule.'
+        'Known gaps (expected divergence, not bugs) -- see cone/agent/skills/gpu-cpu-parity-check/SKILL.md ' +
+        'for the current list: GPU still has no tipping-force/rotational-drag stabilization, no ' +
+        'self-collision, no head-death-on-ground rule. Shape-memory pull was ported -- no longer a gap.'
     );
 
     const template = ShapeFactory.create(ShapeType.CUBE, 'parity-template');
@@ -51,6 +52,9 @@ export async function runParityHarness(): Promise<void> {
     for (let i = 0; i < FRAMES; i++) {
         cpuTime += DT;
         cpuEngine.updateOrganism(cpuOrg, cpuTime, false);
+        if (CHECKPOINTS.includes(i + 1)) {
+            showDiagnosticOverlay(describeYRange(cpuOrg, `CPU @frame${i + 1}`));
+        }
     }
     const cpuFinite = isFinitePosition(cpuOrg);
     showDiagnosticOverlay(`CPU after ${FRAMES} frames: alive=${cpuOrg.isAlive} finite=${cpuFinite} ${describeYRange(cpuOrg, 'yRange')}`);
@@ -92,7 +96,11 @@ export async function runParityHarness(): Promise<void> {
             contractionSpeed: cfg.contractionSpeed,
             antiSingularityRadius: cfg.antiSingularityRadius,
             relaxationFactor: cfg.relaxationFactor,
+            shapeMemoryStrength: cfg.shapeMemoryStrength,
         });
+        if (CHECKPOINTS.includes(i + 1)) {
+            showDiagnosticOverlay(describeYRange(gpuOrg, `GPU @frame${i + 1}`));
+        }
     }
     const gpuFinite = isFinitePosition(gpuOrg);
     showDiagnosticOverlay(`GPU after ${FRAMES} frames: finite=${gpuFinite} ${describeYRange(gpuOrg, 'yRange')}`);

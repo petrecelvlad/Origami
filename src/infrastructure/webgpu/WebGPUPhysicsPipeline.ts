@@ -215,7 +215,8 @@ export class WebGPUPhysicsPipeline {
         constraintIterations: number = 3,
         contractionSpeed: number = 5.0,
         antiSingularityRadius: number = 0.05,
-        relaxationFactor: number = 0.25
+        relaxationFactor: number = 0.25,
+        shapeMemoryStrength: number = 0.7
     ): void {
         const device = this.context.device;
         if (!device) return;
@@ -263,7 +264,7 @@ export class WebGPUPhysicsPipeline {
             contractionSpeed,
             antiSingularityRadius,
             relaxationFactor, // 104
-            0  // padding
+            shapeMemoryStrength // 108
         ]);
         device.queue.writeBuffer(this.uniformBuffer, 0, paramsArray);
         

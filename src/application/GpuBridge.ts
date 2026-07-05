@@ -189,7 +189,8 @@ export class GpuBridge {
             config.constraintIterations ?? 3,
             config.contractionSpeed ?? 5.0,
             config.antiSingularityRadius ?? 0.05,
-            config.relaxationFactor ?? 0.8
+            config.relaxationFactor ?? 0.8,
+            config.shapeMemoryStrength ?? 0.7
         );
     }
 

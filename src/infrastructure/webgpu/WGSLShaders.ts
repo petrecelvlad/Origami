@@ -33,7 +33,7 @@ struct SimParams {
     contractionSpeed: f32,        // 96
     antiSingularityRadius: f32,   // 100
     relaxationFactor: f32,        // 104
-    padding2: f32,                // 108
+    shapeMemoryStrength: f32,     // 108 (was unused padding)
 };
 
 @group(0) @binding(0) var<uniform> params: SimParams;
@@ -141,7 +141,16 @@ fn calcMuscleForces(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // Hooke's law: F = -k * (x - x0)
     var forceMag = (distReal - targetLen) * stiffness;
-    
+
+    // Shape memory: an anchor force back toward the muscle's ORIGINAL rest length (baseLen),
+    // independent of the actively-tracked targetLen above. Without this, nothing resists slow,
+    // cumulative drift away from the creature's built shape over many frames -- targetLen can
+    // wander from signal noise/slew, and gravity + only a target-tracking spring has no anchor
+    // to pull back to. Mirrors BioPhysicsEngine.resolveMuscles' memoryCorrection (CPU), simplified
+    // (no strain-boost amplification yet -- see cone/agent/skills/gpu-cpu-parity-check/SKILL.md).
+    let baseDiff = distReal - baseLen;
+    forceMag += baseDiff * params.shapeMemoryStrength * stiffness;
+
     // Phase 6: Anti-Singularity Repulsion
     if (distReal < params.antiSingularityRadius) {
         let penalty = 1.0 - (distReal / params.antiSingularityRadius);
