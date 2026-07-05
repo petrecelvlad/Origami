@@ -1,0 +1,50 @@
+# VOLUME 1: THE CONSTITUTION
+**Project Origami 0.5**
+
+## 1. THE MANDATE & ARCHITECTURAL GUARDRAILS
+You are operating within Project Origami. An evolutionary simulation where soft-body geometric organisms learn to walk using genetic algorithms and Verlet integration.
+*   **Directive 1:** Performance is paramount. All core simulation loops must be optimized for WebGPU where possible or use efficient CPU-based array operations.
+*   **Directive 2:** Modular Evolution. Services must be decoupled (Metabolism, Ecosystem, Lineage) to prevent the "EvolutionService God Object" anti-pattern.
+*   **Directive 3:** Domain-Driven Design. Business logic (physics, genetics, neural) must reside in `@domain`, separated from `@application` orchestration and `@infrastructure` (React, WebGPU).
+*   **Directive 4:** Determinism. The simulation state must be serializable and reproducible across sessions.
+
+## 2. THE ARCHITECTURE
+The system follows a Layered Domain-Driven Architecture with an emphasis on GPU-acceleration.
+*   **Domain:** Atomic physics, genetics, and neural logic.
+*   **Application:** Use-cases, service orchestration, and simulation state management.
+*   **Infrastructure:** WebGPU pipelines, React UI, and local storage persistence.
+
+### 2.1 Implementation Standards
+*   Use TypeScript strictly. No `any`.
+*   Prefer functional programming for state transitions, but classes are allowed for core domain objects (Physics bodies, Neural nodes).
+
+## 3. THE TECH STACK (Universal DNA)
+*   React 19 + Three.js (@react-three/fiber)
+*   WebGPU for compute-heavy physics and neural updates
+*   Motion for UI animations
+*   Lucide-React for iconography
+
+### 3.1 The Pillars
+1.  **BioPhysicsEngine (The Heart):** Manages Verlet integration and constraint resolution.
+2.  **GeneticOperator (The Architect):** Handles mutation, crossover, and family synthesis.
+3.  **BrainController (The Mind):** Orchestrates NeuralNodes, SensoryModules, and LearningEngines.
+4.  **WebGPUContext (The Engine):** Interfaces with the GPU for high-performance computation.
+
+## 4. THE DOCUMENTATION PROTOCOL
+We follow the Knowledge Operating System framework.
+
+### 4.1 File-Level Metadata
+Source files should include a `@propolis` block if they represent a significant architectural component.
+
+### 4.2 Logic-Level Documentation
+Complex algorithms should use the `@logic_seal` block to describe intent and modification warnings.
+
+## 5. TECHNICAL STANDARDS & CONVENTIONS
+*   Naming: PascalCase for components/classes, camelCase for variables/functions.
+*   Commits: Feature-based, following SemVer for versioning.
+*   Version: Current Version 0.5.5.
+
+---
+
+### Onboard yourself into Project Origami
+*   Get Context: Read docs/00_BOOTLOADER/00_START_HERE.md then follow the instructions inside.

@@ -1,0 +1,5 @@
+{
+  "name": "Project Origami 0.5",
+  "description": "An evolutionary soft-body simulation where geometric creatures learn to walk using speciated genetic algorithms, neural CPGs, and WebGPU physics.",
+  "requestFramePermissions": []
+}

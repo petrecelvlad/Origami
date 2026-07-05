@@ -1,0 +1,40 @@
+{
+  "name": "project-origami",
+  "private": true,
+  "version": "0.5.6",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit",
+    "lint:okf": "node scripts/lint-okf.cjs",
+    "visualize": "python -m reference_agent visualize --bundle cone --out cone_viz.html --name \"project-origami\""
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "@vitejs/plugin-react": "^5.1.2",
+    "clsx": "^2.1.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^1.8.0",
+    "motion": "^12.38.0",
+    "path": "^0.12.7",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "sonner": "^2.0.7",
+    "stats.js": "^0.17.0",
+    "tailwind-merge": "^3.5.0",
+    "three": "^0.182.0",
+    "three-stdlib": "^2.36.1",
+    "vite": "^7.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/stats.js": "^0.17.4",
+    "@vitejs/plugin-react": "^5.0.0",
+    "@webgpu/types": "^0.1.69",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
