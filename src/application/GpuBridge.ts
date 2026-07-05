@@ -104,6 +104,22 @@ export class GpuBridge {
   public syncPopulation(population: Organism[], dt: number) {
     if (!this.isActive) return;
     this.memory.syncFromPopulation(population, dt);
+
+    // THE FIX: syncFromPopulation only flattens the population into the CPU-side
+    // SimulationMemory arrays. The physics GPU buffers were populated exactly once, at
+    // physics.initialize() time, from whatever was in SimulationMemory then (an empty
+    // population — all zeros). Nothing pushed the real, freshly-synced data to the GPU after
+    // that, so physics always ran against zeroed positions: every muscle's endpoints read as
+    // the same point (distReal = 0 for all of them) and every node's y = 0 immediately
+    // triggered the floor-collision clamp, crushing every creature flat on frame one.
+    this.context.updateBuffer(this.physics.posBuffer, this.memory.nodePositions);
+    this.context.updateBuffer(this.physics.velBuffer, this.memory.nodeVelocities);
+    this.context.updateBuffer(this.physics.propBuffer, this.memory.nodeProperties);
+    this.context.updateBuffer(this.physics.muscIdxBuffer, this.memory.muscleIndices);
+    this.context.updateBuffer(this.physics.muscPropBuffer, this.memory.muscleProperties);
+    this.context.updateBuffer(this.physics.muscOscBuffer, this.memory.muscleOscillators);
+    this.context.updateBuffer(this.physics.gripBuffer, this.memory.nodeGripState);
+
     this.neural.refreshGenomes();
   }
 
