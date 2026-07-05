@@ -7,7 +7,7 @@
  *   "agent_instructions": "This bridge coordinates the CPU-to-GPU data flow. Ensure uniform buffers are synced before every neural computation."
  * }
  */
-import { WebGPUContext } from '../infrastructure/webgpu/WebGPUContext';
+import { WebGPUContext, showDiagnosticOverlay } from '../infrastructure/webgpu/WebGPUContext';
 import { SimulationMemory } from '../infrastructure/webgpu/SimulationMemory';
 import { WebGPUPhysicsPipeline } from '../infrastructure/webgpu/WebGPUPhysicsPipeline';
 import { WebGPUNeuralPipeline } from '../infrastructure/webgpu/WebGPUNeuralPipeline';
@@ -19,6 +19,10 @@ export class GpuBridge {
   public physics!: WebGPUPhysicsPipeline;
   public neural!: WebGPUNeuralPipeline;
   public isActive = false;
+
+  // DIAGNOSTIC: guards the one-time first-frame node/muscle count log below.
+  // Remove alongside every other "DIAGNOSTIC" tag once the laptop bug is confirmed/fixed.
+  private hasLoggedFirstFrame = false;
 
   constructor() {
     this.context = new WebGPUContext();
@@ -35,13 +39,21 @@ export class GpuBridge {
         await this.neural.initialize(this.physics.uniformBuffer, this.physics.muscOscBuffer, this.physics.posBuffer);
         this.isActive = true;
         (window as any).__WGPU_ACTIVE__ = true;
+        // DIAGNOSTIC: confirms this machine actually takes the GPU path at all.
+        // Remove once the laptop bug is confirmed/fixed.
+        showDiagnosticOverlay('GpuBridge.isActive = true (GPU path engaged)');
         return true;
       }
     } catch (e) {
       this.isActive = false;
       (window as any).__WGPU_ACTIVE__ = false;
       console.warn("GPU Fallback: WebGPU not available.", e);
+      // DIAGNOSTIC: remove once the laptop bug is confirmed/fixed.
+      showDiagnosticOverlay(`GpuBridge.isActive = false (exception during init: ${e instanceof Error ? e.message : String(e)})`);
+      return false;
     }
+    // DIAGNOSTIC: remove once the laptop bug is confirmed/fixed.
+    showDiagnosticOverlay('GpuBridge.isActive = false (context.device was null, no exception thrown)');
     return false;
   }
 
@@ -67,6 +79,16 @@ export class GpuBridge {
       config: any
   ) {
     if (!this.isActive || !this.context.device) return;
+
+    // DIAGNOSTIC: one-time log of the first real GPU frame's node/muscle/organism counts —
+    // if these are 0, no physics workgroups actually dispatch and nodes stay exactly where
+    // ShapeFactory's raw construction pose put them. Remove once the laptop bug is confirmed/fixed.
+    if (!this.hasLoggedFirstFrame) {
+        this.hasLoggedFirstFrame = true;
+        showDiagnosticOverlay(
+            `First GPU frame: activeNodeCount=${this.memory.activeNodeCount} activeMuscleCount=${this.memory.activeMuscleCount} activeOrganismCount=${this.memory.activeOrganismCount}`
+        );
+    }
 
     // Fast sync dynamic elements (Head pos, Food pos)
     this.memory.syncDynamicSensors(population);

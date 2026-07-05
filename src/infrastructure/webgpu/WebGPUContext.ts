@@ -15,7 +15,7 @@
  * selecting and copying text that spans separate block elements or literal newlines pastes
  * as multiple Enter-separated lines, which truncates a paste into a terminal at the first line.
  */
-function showDiagnosticOverlay(line: string): void {
+export function showDiagnosticOverlay(line: string): void {
     console.log(`[WebGPU Diagnostic] ${line}`);
 
     let overlay = document.getElementById('wgpu-diagnostic-overlay');
