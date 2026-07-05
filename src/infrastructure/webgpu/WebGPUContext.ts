@@ -2,9 +2,33 @@
 
 /**
  * PHASE 1: WebGPU Context & Adapter
- * Initializes the connection to the physical graphics card and provides 
+ * Initializes the connection to the physical graphics card and provides
  * utility functions to push our SimulationMemory buffers into VRAM.
  */
+
+/**
+ * DIAGNOSTIC: renders diagnostic lines directly on-screen so they can be read off the
+ * device without opening devtools. Remove this whole function once the laptop bug is
+ * confirmed/fixed, along with every call site tagged "DIAGNOSTIC".
+ */
+function showDiagnosticOverlay(line: string): void {
+    console.log(`[WebGPU Diagnostic] ${line}`);
+
+    let overlay = document.getElementById('wgpu-diagnostic-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'wgpu-diagnostic-overlay';
+        overlay.style.cssText = [
+            'position:fixed', 'top:8px', 'left:8px', 'z-index:999999',
+            'max-width:90vw', 'max-height:60vh', 'overflow:auto',
+            'background:rgba(0,0,0,0.85)', 'color:#0f0',
+            'font-family:monospace', 'font-size:12px', 'line-height:1.4',
+            'padding:8px', 'border-radius:4px', 'white-space:pre-wrap',
+        ].join(';');
+        document.body.appendChild(overlay);
+    }
+    overlay.textContent += line + '\n';
+}
 /**
  * @propolis
  * {
@@ -44,34 +68,32 @@ export class WebGPUContext {
         // DIAGNOSTIC: adapter's actual supported limits vs. the defaults we're about to request.
         // The physics pipeline binds 10 storage buffers to one compute stage; the spec's
         // default maxStorageBuffersPerShaderStage is 8. Remove once the laptop bug is confirmed/fixed.
-        console.log('[WebGPU Diagnostic] adapter.limits:', {
-            maxStorageBuffersPerShaderStage: this.adapter.limits.maxStorageBuffersPerShaderStage,
-            maxStorageBufferBindingSize: this.adapter.limits.maxStorageBufferBindingSize,
-            maxBindGroups: this.adapter.limits.maxBindGroups,
-            maxComputeInvocationsPerWorkgroup: this.adapter.limits.maxComputeInvocationsPerWorkgroup,
-        });
+        showDiagnosticOverlay(`adapter.maxStorageBuffersPerShaderStage = ${this.adapter.limits.maxStorageBuffersPerShaderStage}`);
+        showDiagnosticOverlay(`adapter.maxStorageBufferBindingSize = ${this.adapter.limits.maxStorageBufferBindingSize}`);
+        showDiagnosticOverlay(`adapter.maxBindGroups = ${this.adapter.limits.maxBindGroups}`);
+        showDiagnosticOverlay(`adapter.maxComputeInvocationsPerWorkgroup = ${this.adapter.limits.maxComputeInvocationsPerWorkgroup}`);
 
         // Request the logical device to interact with the API
         this.device = await this.adapter.requestDevice();
 
         // DIAGNOSTIC: the limits actually granted to this device (may be lower than adapter.limits
-        // above if not explicitly requested via requiredLimits). Remove once confirmed/fixed.
-        console.log('[WebGPU Diagnostic] device.limits:', {
-            maxStorageBuffersPerShaderStage: this.device.limits.maxStorageBuffersPerShaderStage,
-            maxStorageBufferBindingSize: this.device.limits.maxStorageBufferBindingSize,
-            maxBindGroups: this.device.limits.maxBindGroups,
-            maxComputeInvocationsPerWorkgroup: this.device.limits.maxComputeInvocationsPerWorkgroup,
-        });
+        // above if not explicitly requested via requiredLimits). This is the one that matters —
+        // if maxStorageBuffersPerShaderStage shows 8, that confirms the physics pipeline's 10
+        // storage buffer bindings exceed what this device was granted. Remove once confirmed/fixed.
+        showDiagnosticOverlay(`device.maxStorageBuffersPerShaderStage = ${this.device.limits.maxStorageBuffersPerShaderStage}`);
+        showDiagnosticOverlay(`device.maxStorageBufferBindingSize = ${this.device.limits.maxStorageBufferBindingSize}`);
+        showDiagnosticOverlay(`device.maxBindGroups = ${this.device.limits.maxBindGroups}`);
+        showDiagnosticOverlay(`device.maxComputeInvocationsPerWorkgroup = ${this.device.limits.maxComputeInvocationsPerWorkgroup}`);
 
         // DIAGNOSTIC: surfaces validation errors (e.g. exceeding a limit) that WebGPU reports
         // asynchronously instead of throwing. Without this, a rejected bind group or pipeline
         // fails silently and the simulation just runs broken. Remove once confirmed/fixed.
         this.device.addEventListener('uncapturederror', (event) => {
-            console.error('[WebGPU Diagnostic] Uncaptured GPU error:', (event as GPUUncapturedErrorEvent).error);
+            showDiagnosticOverlay(`UNCAPTURED GPU ERROR: ${(event as GPUUncapturedErrorEvent).error.message}`);
         });
 
         this.device.lost.then((info) => {
-            console.error('[WebGPU Diagnostic] Device lost:', info.reason, info.message);
+            showDiagnosticOverlay(`DEVICE LOST: ${info.reason} — ${info.message}`);
         });
 
         console.log(`[WebGPU] Context Initialized. Running on Hardware Accelerated Device.`);
