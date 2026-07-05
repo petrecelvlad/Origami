@@ -43,6 +43,7 @@ export class WebGPUPhysicsPipeline {
 
     private posReadBuffer!: GPUBuffer;
     private gripReadBuffer!: GPUBuffer;
+    private muscPropReadBuffer!: GPUBuffer;
 
     constructor(context: WebGPUContext, memory: SimulationMemory) {
         this.context = context;
@@ -152,6 +153,11 @@ export class WebGPUPhysicsPipeline {
         // Reading back node positions
         this.posReadBuffer = this.context.createReadbackBuffer(this.memory.nodePositions.byteLength, 'PosReadback');
         this.gripReadBuffer = this.context.createReadbackBuffer(this.memory.nodeGripState.byteLength, 'GripReadback');
+        // Muscle props (baseLength/targetLength/currentLength/stiffness) — calcMuscleForces already
+        // writes the live-computed currentLength back into muscPropBuffer every frame, but nothing
+        // previously read that buffer back to the CPU, so SimulationMemory.syncToPopulation's
+        // `m.currentLength = this.muscleProperties[idx+2]` was always reading stale, JS-only data.
+        this.muscPropReadBuffer = this.context.createReadbackBuffer(this.memory.muscleProperties.byteLength, 'MusclePropsReadback');
     }
 
     private createBindGroup() {
@@ -318,6 +324,11 @@ export class WebGPUPhysicsPipeline {
             this.gripReadBuffer, 0,
             this.memory.nodeGripState.byteLength
         );
+        commandEncoder.copyBufferToBuffer(
+            this.muscPropBuffer, 0,
+            this.muscPropReadBuffer, 0,
+            this.memory.muscleProperties.byteLength
+        );
 
         // 4. Fire the job off into the ether
         device.queue.submit([commandEncoder.finish()]);
@@ -333,9 +344,10 @@ export class WebGPUPhysicsPipeline {
         // Map for reading
         await Promise.all([
             this.posReadBuffer.mapAsync(GPUMapMode.READ),
-            this.gripReadBuffer.mapAsync(GPUMapMode.READ)
+            this.gripReadBuffer.mapAsync(GPUMapMode.READ),
+            this.muscPropReadBuffer.mapAsync(GPUMapMode.READ)
         ]);
-        
+
         // Copy the raw bites back into Javascript context
         const arrayBuffer = this.posReadBuffer.getMappedRange();
         const gpuPositions = new Float32Array(arrayBuffer);
@@ -344,9 +356,14 @@ export class WebGPUPhysicsPipeline {
         const gripArrayBuffer = this.gripReadBuffer.getMappedRange();
         const gpuGrip = new Float32Array(gripArrayBuffer);
         this.memory.nodeGripState.set(gpuGrip);
-        
+
+        const muscPropArrayBuffer = this.muscPropReadBuffer.getMappedRange();
+        const gpuMuscProps = new Float32Array(muscPropArrayBuffer);
+        this.memory.muscleProperties.set(gpuMuscProps);
+
         // Unmap the buffers so the GPU can use it again next frame
         this.posReadBuffer.unmap();
         this.gripReadBuffer.unmap();
+        this.muscPropReadBuffer.unmap();
     }
 }

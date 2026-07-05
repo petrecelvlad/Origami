@@ -29,6 +29,34 @@ function describeYRange(org: Organism, label: string): string {
     return `${label}: org=${org.id} nodeCount=${org.nodes.length} yMin=${min.toFixed(3)} yMax=${max.toFixed(3)} headY=${headY}`;
 }
 
+/**
+ * DIAGNOSTIC: flags muscles whose GPU-computed currentLength has diverged wildly from their
+ * baseLength (ratio < 0.1 or > 3) — a near-zero or exploded live length points at a bad
+ * node-index/data mapping rather than a merely-too-strong-but-sane force. Remove alongside
+ * every other "DIAGNOSTIC" tag once the laptop bug is confirmed/fixed.
+ */
+function describeMuscleAnomalies(org: Organism, label: string): string {
+    let anomalyCount = 0;
+    let worst: { id: string; base: number; current: number; ratio: number } | null = null;
+
+    for (const m of org.muscles) {
+        const base = m.baseLength;
+        const current = m.currentLength ?? base;
+        const ratio = base > 0 ? current / base : 1;
+        if (ratio < 0.1 || ratio > 3) {
+            anomalyCount++;
+            if (!worst || Math.abs(Math.log(ratio)) > Math.abs(Math.log(worst.ratio))) {
+                worst = { id: m.id, base, current, ratio };
+            }
+        }
+    }
+
+    if (!worst) {
+        return `${label}: no muscle-length anomalies (${org.muscles.length} muscles checked)`;
+    }
+    return `${label}: ${anomalyCount}/${org.muscles.length} anomalous muscles, worst=${worst.id} base=${worst.base.toFixed(3)} current=${worst.current.toFixed(3)} ratio=${worst.ratio.toFixed(3)}`;
+}
+
 export class GpuBridge {
   public context: WebGPUContext;
   public memory: SimulationMemory;
@@ -155,9 +183,12 @@ export class GpuBridge {
 
     // DIAGNOSTIC: same organism's Y-range immediately after the first GPU-computed frame —
     // compare against the PRE-physics line above to see exactly what this frame did to it.
-    // Remove once the laptop bug is confirmed/fixed.
+    // Also checks each muscle's GPU-computed currentLength against its baseLength, to tell
+    // a bad index/data mapping (near-zero or exploded lengths) apart from a merely-too-strong
+    // but otherwise sane force. Remove once the laptop bug is confirmed/fixed.
     if (isFirstFrame && population[0]) {
         showDiagnosticOverlay(describeYRange(population[0], 'POST-physics (frame 1)'));
+        showDiagnosticOverlay(describeMuscleAnomalies(population[0], 'POST-physics (frame 1) muscles'));
     }
   }
 }
