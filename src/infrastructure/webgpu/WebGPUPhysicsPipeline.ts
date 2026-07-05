@@ -24,6 +24,7 @@ export class WebGPUPhysicsPipeline {
     private pipelineCalcConstraints!: GPUComputePipeline;
     private pipelineApplyConstraints!: GPUComputePipeline;
 
+    private bindGroupLayout!: GPUBindGroupLayout;
     private bindGroup!: GPUBindGroup;
 
     // GPU Buffers
@@ -59,29 +60,58 @@ export class WebGPUPhysicsPipeline {
             code: physicsComputeShader,
         });
 
-        // Create the 3 entry points (Passes)
+        // Explicit shared bind group layout. `layout: 'auto'` infers a layout per entry point
+        // containing only the bindings that entry point's WGSL body references (e.g. clearForces
+        // only touches the uniform + 3 force buffers) — but one bind group built from a single
+        // entry point's layout is reused below across all five passes, several of which need
+        // bindings the narrow inferred layout doesn't have. An explicit layout listing every
+        // binding this shader module declares means every pass agrees on the same contract,
+        // independent of what each individual entry point happens to reference.
+        this.bindGroupLayout = device.createBindGroupLayout({
+            label: 'Physics Bind Group Layout',
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 9, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 10, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+            ],
+        });
+
+        const pipelineLayout = device.createPipelineLayout({
+            label: 'Physics Pipeline Layout',
+            bindGroupLayouts: [this.bindGroupLayout],
+        });
+
+        // Create the 5 entry points (Passes), all against the shared explicit layout
         this.pipelineClear = device.createComputePipeline({
-            layout: 'auto',
+            layout: pipelineLayout,
             compute: { module: shaderModule, entryPoint: 'clearForces' },
         });
 
         this.pipelineMuscles = device.createComputePipeline({
-            layout: 'auto',
+            layout: pipelineLayout,
             compute: { module: shaderModule, entryPoint: 'calcMuscleForces' },
         });
 
         this.pipelineIntegrate = device.createComputePipeline({
-            layout: 'auto',
+            layout: pipelineLayout,
             compute: { module: shaderModule, entryPoint: 'integrateNodes' },
         });
 
         this.pipelineCalcConstraints = device.createComputePipeline({
-            layout: 'auto',
+            layout: pipelineLayout,
             compute: { module: shaderModule, entryPoint: 'calcConstraints' },
         });
 
         this.pipelineApplyConstraints = device.createComputePipeline({
-            layout: 'auto',
+            layout: pipelineLayout,
             compute: { module: shaderModule, entryPoint: 'applyConstraints' },
         });
 
@@ -128,7 +158,7 @@ export class WebGPUPhysicsPipeline {
         const device = this.context.device!;
         
         this.bindGroup = device.createBindGroup({
-            layout: this.pipelineClear.getBindGroupLayout(0),
+            layout: this.bindGroupLayout,
             entries: [
                 { binding: 0, resource: { buffer: this.uniformBuffer } },
                 { binding: 1, resource: { buffer: this.posBuffer } },

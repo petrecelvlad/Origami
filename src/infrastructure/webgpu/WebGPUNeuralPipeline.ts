@@ -17,6 +17,7 @@ export class WebGPUNeuralPipeline {
 
     private pipelineBrains!: GPUComputePipeline;
     private pipelineCopy!: GPUComputePipeline;
+    private bindGroupLayout!: GPUBindGroupLayout;
     private bindGroup!: GPUBindGroup;
 
     public uniformBuffer!: GPUBuffer;
@@ -49,13 +50,36 @@ export class WebGPUNeuralPipeline {
             code: neuralComputeShader,
         });
 
+        // Explicit shared bind group layout — see the equivalent comment in
+        // WebGPUPhysicsPipeline.ts. `computeBrains` and `copyCPG` reference different subsets
+        // of these bindings; `layout: 'auto'` on just one of them isn't a valid layout for both.
+        this.bindGroupLayout = device.createBindGroupLayout({
+            label: 'Neural Bind Group Layout',
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+            ],
+        });
+
+        const pipelineLayout = device.createPipelineLayout({
+            label: 'Neural Pipeline Layout',
+            bindGroupLayouts: [this.bindGroupLayout],
+        });
+
         this.pipelineBrains = device.createComputePipeline({
-            layout: 'auto',
+            layout: pipelineLayout,
             compute: { module: shaderModule, entryPoint: 'computeBrains' },
         });
-        
+
         this.pipelineCopy = device.createComputePipeline({
-            layout: 'auto',
+            layout: pipelineLayout,
             compute: { module: shaderModule, entryPoint: 'copyCPG' },
         });
 
@@ -86,7 +110,7 @@ export class WebGPUNeuralPipeline {
     private createBindGroup() {
         const device = this.context.device!;
         this.bindGroup = device.createBindGroup({
-            layout: this.pipelineBrains.getBindGroupLayout(0),
+            layout: this.bindGroupLayout,
             entries: [
                 { binding: 0, resource: { buffer: this.uniformBuffer } },
                 { binding: 1, resource: { buffer: this.cpgBufferA } },

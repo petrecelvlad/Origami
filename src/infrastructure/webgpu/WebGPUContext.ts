@@ -77,8 +77,16 @@ export class WebGPUContext {
         showDiagnosticOverlay(`adapter.maxBindGroups = ${this.adapter.limits.maxBindGroups}`);
         showDiagnosticOverlay(`adapter.maxComputeInvocationsPerWorkgroup = ${this.adapter.limits.maxComputeInvocationsPerWorkgroup}`);
 
-        // Request the logical device to interact with the API
-        this.device = await this.adapter.requestDevice();
+        // Request the logical device to interact with the API.
+        // The physics pipeline's shared bind group layout needs 10 storage buffers in one
+        // compute stage; the spec's default maxStorageBuffersPerShaderStage is only 8. Request
+        // what's actually needed, capped at whatever this adapter can really provide.
+        const requiredStorageBuffersPerStage = Math.min(10, this.adapter.limits.maxStorageBuffersPerShaderStage);
+        this.device = await this.adapter.requestDevice({
+            requiredLimits: {
+                maxStorageBuffersPerShaderStage: requiredStorageBuffersPerStage,
+            },
+        });
 
         // DIAGNOSTIC: the limits actually granted to this device (may be lower than adapter.limits
         // above if not explicitly requested via requiredLimits). This is the one that matters —
