@@ -13,6 +13,22 @@ import { WebGPUPhysicsPipeline } from '../infrastructure/webgpu/WebGPUPhysicsPip
 import { WebGPUNeuralPipeline } from '../infrastructure/webgpu/WebGPUNeuralPipeline';
 import { Organism } from '../domain/types';
 
+/**
+ * DIAGNOSTIC: reports one organism's node Y-position range so a vertical stretch/collapse
+ * is directly visible in the overlay. Remove alongside every other "DIAGNOSTIC" tag once
+ * the laptop bug is confirmed/fixed.
+ */
+function describeYRange(org: Organism, label: string): string {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const n of org.nodes) {
+        if (n.pos.y < min) min = n.pos.y;
+        if (n.pos.y > max) max = n.pos.y;
+    }
+    const headY = org.headNode ? org.headNode.pos.y.toFixed(3) : 'n/a';
+    return `${label}: org=${org.id} nodeCount=${org.nodes.length} yMin=${min.toFixed(3)} yMax=${max.toFixed(3)} headY=${headY}`;
+}
+
 export class GpuBridge {
   public context: WebGPUContext;
   public memory: SimulationMemory;
@@ -80,14 +96,18 @@ export class GpuBridge {
   ) {
     if (!this.isActive || !this.context.device) return;
 
-    // DIAGNOSTIC: one-time log of the first real GPU frame's node/muscle/organism counts —
-    // if these are 0, no physics workgroups actually dispatch and nodes stay exactly where
-    // ShapeFactory's raw construction pose put them. Remove once the laptop bug is confirmed/fixed.
-    if (!this.hasLoggedFirstFrame) {
+    // DIAGNOSTIC: one-time log of the first real GPU frame's node/muscle/organism counts, and
+    // the first organism's Y-position range before this frame's physics runs (i.e. the raw
+    // spawn pose, untouched by GPU physics so far). Remove once the laptop bug is confirmed/fixed.
+    const isFirstFrame = !this.hasLoggedFirstFrame;
+    if (isFirstFrame) {
         this.hasLoggedFirstFrame = true;
         showDiagnosticOverlay(
             `First GPU frame: activeNodeCount=${this.memory.activeNodeCount} activeMuscleCount=${this.memory.activeMuscleCount} activeOrganismCount=${this.memory.activeOrganismCount}`
         );
+        if (population[0]) {
+            showDiagnosticOverlay(describeYRange(population[0], 'PRE-physics (raw spawn pose)'));
+        }
     }
 
     // Fast sync dynamic elements (Head pos, Food pos)
@@ -132,5 +152,12 @@ export class GpuBridge {
     // Read back to CPU
     await this.physics.readPositionsFallbackAsync();
     this.memory.syncToPopulation(population);
+
+    // DIAGNOSTIC: same organism's Y-range immediately after the first GPU-computed frame —
+    // compare against the PRE-physics line above to see exactly what this frame did to it.
+    // Remove once the laptop bug is confirmed/fixed.
+    if (isFirstFrame && population[0]) {
+        showDiagnosticOverlay(describeYRange(population[0], 'POST-physics (frame 1)'));
+    }
   }
 }
