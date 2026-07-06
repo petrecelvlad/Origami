@@ -60,6 +60,13 @@ struct SimParams {
 
 const SCALE: f32 = 100000.0;
 const RADIUS: f32 = 0.1;
+// Matches BioPhysicsEngine.ts's BUCKLING_THRESHOLD (ENGINE_CONFIG.physics.bucklingThreshold).
+// CPU treats this as an immutable constant too (not exposed via SimulationConfig), so it's
+// hardcoded here rather than threaded through as a uniform.
+const BUCKLING_THRESHOLD: f32 = 20.0;
+// Matches BioPhysicsEngine.ts's ANCHOR_MULTIPLIER: a gripping node barely responds to muscle
+// forces, mirroring CPU's near-infinite effective mass for a planted, anchored foot.
+const GRIP_FORCE_DAMPENING: f32 = 0.001;
 
 // ==========================================
 // PASS 1: CLEAR FORCES
@@ -94,8 +101,8 @@ fn calcMuscleForces(@builtin(global_invocation_id) id: vec3<u32>) {
     let baseLen = props.x;
     var targetLen = props.y;
     let currentLen = props.z;
-    let stiffness = props.w * params.globalStiffness;
-    
+    let muscleStiffness = props.w;
+
     // ---- NEURAL SIGNAL INJECTION ----
     // This perfectly mimics the CPU "Spinal Wave"
     let osc = muscleOsc[index];
@@ -124,7 +131,16 @@ fn calcMuscleForces(@builtin(global_invocation_id) id: vec3<u32>) {
     // ---- PHYSICS ----
     let diff = posB - posA;
     let distReal = length(diff);
-    
+
+    // Buckling: muscles under heavy stress go soft (safety valve against explosive forces),
+    // and the CPU engine additionally bakes in a flat 0.8 multiplier on top of per-muscle
+    // stiffness -- both were missing here, making GPU muscles ~25% stiffer than CPU's with no
+    // stress relief, plausibly contributing to the reported "rigid body" feel.
+    // Mirrors BioPhysicsEngine.resolveMuscles' preStress/stiffnessFactor (CPU).
+    let preStress = abs(distReal - baseLen) * muscleStiffness * params.globalStiffness;
+    let stiffnessFactor = select(1.0, 0.2, preStress > BUCKLING_THRESHOLD);
+    let stiffness = muscleStiffness * 0.8 * params.globalStiffness * stiffnessFactor;
+
     // Phase 6: Topoloigcal Singularity Fallback
     var dir = vec3<f32>(0.0, 1.0, 0.0); // Arbitrary push-apart direction if perfectly overlapped
     if (distReal > 0.0001) {
@@ -178,18 +194,30 @@ fn calcMuscleForces(@builtin(global_invocation_id) id: vec3<u32>) {
     // Output target lengths back so JS can optionally render them
     muscleProps[index] = vec4<f32>(baseLen, targetLen, distReal, props.w);
 
+    // Grip-aware force dampening: a gripping (planted, anchored) node should barely respond to
+    // muscle forces, so corrections mostly move the OTHER, non-anchored node instead -- mirroring
+    // BioPhysicsEngine.resolveMuscles' ANCHOR_MULTIPLIER (CPU reduces a gripping node's effective
+    // inverse mass to near-zero for muscle correction specifically). Without this, GPU treats a
+    // planted foot as an equally-movable mass like any other node, so muscle forces can drag
+    // "anchored" feet around instead of using them as a stable base to stand/pivot on --
+    // deliberately asymmetric (not equal-and-opposite): the missing reaction on a gripping node
+    // is absorbed by the (unmodeled) ground/grip constraint, same as CPU's intent.
+    let grippingA = nodeGrip[idxA].w > 0.5;
+    let grippingB = nodeGrip[idxB].w > 0.5;
+    let forceScaleA = select(1.0, GRIP_FORCE_DAMPENING, grippingA);
+    let forceScaleB = select(1.0, GRIP_FORCE_DAMPENING, grippingB);
+
     // Convert float force to fixed-point integer for thread-safe atomics
-    let fx = i32(force.x * SCALE);
-    let fy = i32(force.y * SCALE);
-    let fz = i32(force.z * SCALE);
+    let forceA = force * forceScaleA;
+    let forceB = force * forceScaleB;
 
-    atomicAdd(&forceAccumX[idxA], fx);
-    atomicAdd(&forceAccumY[idxA], fy);
-    atomicAdd(&forceAccumZ[idxA], fz);
+    atomicAdd(&forceAccumX[idxA], i32(forceA.x * SCALE));
+    atomicAdd(&forceAccumY[idxA], i32(forceA.y * SCALE));
+    atomicAdd(&forceAccumZ[idxA], i32(forceA.z * SCALE));
 
-    atomicAdd(&forceAccumX[idxB], -fx);
-    atomicAdd(&forceAccumY[idxB], -fy);
-    atomicAdd(&forceAccumZ[idxB], -fz);
+    atomicAdd(&forceAccumX[idxB], i32(-forceB.x * SCALE));
+    atomicAdd(&forceAccumY[idxB], i32(-forceB.y * SCALE));
+    atomicAdd(&forceAccumZ[idxB], i32(-forceB.z * SCALE));
 }
 
 // ==========================================
