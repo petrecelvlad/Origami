@@ -144,12 +144,15 @@ fn calcMuscleForces(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // Shape memory: an anchor force back toward the muscle's ORIGINAL rest length (baseLen),
     // independent of the actively-tracked targetLen above. Without this, nothing resists slow,
-    // cumulative drift away from the creature's built shape over many frames -- targetLen can
-    // wander from signal noise/slew, and gravity + only a target-tracking spring has no anchor
-    // to pull back to. Mirrors BioPhysicsEngine.resolveMuscles' memoryCorrection (CPU), simplified
-    // (no strain-boost amplification yet -- see cone/agent/skills/gpu-cpu-parity-check/SKILL.md).
+    // cumulative drift away from the creature's built shape over many frames. strainBoost makes
+    // the anchor self-correcting: the further a muscle has already drifted from baseLen, the
+    // harder it pulls back -- a constant-strength anchor (tried first, confirmed via the parity
+    // harness's 300-frame trend to only slow, not stop, cumulative sag) isn't enough on its own.
+    // Mirrors BioPhysicsEngine.resolveMuscles' memoryCorrection/strainBoost (CPU).
     let baseDiff = distReal - baseLen;
-    forceMag += baseDiff * params.shapeMemoryStrength * stiffness;
+    let strainBoost = 1.0 + (abs(baseDiff) / baseLen) * 4.0;
+    let memoryStrength = params.shapeMemoryStrength * strainBoost * params.globalStiffness;
+    forceMag += baseDiff * memoryStrength;
 
     // Phase 6: Anti-Singularity Repulsion
     if (distReal < params.antiSingularityRadius) {
