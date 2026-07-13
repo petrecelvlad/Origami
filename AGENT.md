@@ -101,7 +101,7 @@ Non-negotiable constraints:
 
 | ID | Name | Scope | Description |
 |---|---|---|---|
-| C-001 | WebGPU Priority | Infrastructure | All compute-heavy tasks must seek GPU offloading first. |
+| C-001 | WebGPU Priority | Infrastructure | **SUSPENDED for release** (2026-07-13) — GPU path disabled due to unresolved CPU/GPU physics divergence; CPU (`BioPhysicsEngine`) is the sole path. See [docs/05_ARCHIVE/05_ISSUES.md](docs/05_ARCHIVE/05_ISSUES.md) Issue #6. |
 | C-002 | Stateless Domain | Domain | Domain logic should not hold persistent state; use input/output patterns. |
 | C-003 | Immutable State | Application | Simulation state updates must be immutable to support undo/redo and persistence. |
 | C-004 | Energy Conservation | Domain | Total system energy must be tracked and conserved (Metabolism). |

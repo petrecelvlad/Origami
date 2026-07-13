@@ -106,10 +106,18 @@ export class EvolutionService {
     this.metabolicService = new MetabolicService();
     this.ecosystemService = new EcosystemService();
     this.lineage = new LineageManager();
-    
-    this.initGPU();
+
+    // GPU path disabled for release: the WebGPU physics port diverges from
+    // BioPhysicsEngine (slow cumulative collapse under load) and the fix was not
+    // localized — see docs/05_ARCHIVE/05_ISSUES.md Issue #6 and
+    // cone/agent/sessions/07_July/Week_1/2026-07-05/02_LAPTOP_GPU_PHYSICS_BUG.md.
+    // Leaving gpu.isActive at its default `false` routes every device through the
+    // CPU path unconditionally (see EvolutionService.step()). Do not re-enable by
+    // calling initGPU() until that divergence is numerically resolved via the
+    // CPU/GPU parity harness.
+    // this.initGPU();
   }
-  
+
   private async initGPU() {
       const success = await this.gpu.initialize();
       if (success) {
