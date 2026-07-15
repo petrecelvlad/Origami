@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useEvolutionLoop } from './application/useEvolutionLoop';
 import { BlueprintService } from './domain/BlueprintService';
-import { ShapeType, Organism, CellType, FamilyType } from './domain/types';
-import { AtomicNormalizer } from './domain/AtomicNormalizer';
+import { ShapeType, Organism, CellType, LineageRecord } from './domain/types';
+import { Serializer } from './application/Serializer';
 import { isAdminBuild } from './config';
 
 // UI Components
@@ -40,7 +40,7 @@ function App() {
     saveBatchChampions,
     loadCreature,
     loadBatchCreatures,
-    getAllChampions,
+    getLineageRecord,
     familyOrder,
     cycleTrackedLeader,
   } = useEvolutionLoop();
@@ -60,6 +60,22 @@ function App() {
   const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [hasRestoredBootSeed, setHasRestoredBootSeed] = useState(false);
 
+  // A stored/loaded record is a body shell blueprint + champion brains
+  // (Charter invariants 1-2). Building the template from it IS deserialization.
+  const syncEditorToLineage = (record: LineageRecord, template: Organism) => {
+      blueprintService.setType(record.shape);
+      blueprintService.loadCells(record.blueprint);
+      setBlueprintCells(blueprintService.getCells());
+      setBlueprintType(record.shape);
+      setEditingOrganism(template);
+  };
+
+  const applyLineageRecord = (record: LineageRecord, autoStart: boolean) => {
+      const { template, champions } = Serializer.buildTemplateFromLineage(record);
+      syncEditorToLineage(record, template);
+      spawnCustom(template, autoStart, champions);
+  };
+
   // --- LOCAL BOOT RESTORATION (SOT SYNC) ---
   useEffect(() => {
       if (hasRestoredBootSeed) return;
@@ -67,45 +83,25 @@ function App() {
       const restoreMasterOnBoot = async () => {
           try {
               const { localVault } = await import('./infrastructure/local/LocalVault');
-              let allChampions: { family: FamilyType; generation: number; snapshot: any }[] = await localVault.getAllLocalChampions();
+              let record: LineageRecord | null = await localVault.getMostRecentLineage();
 
-              if (allChampions.length === 0) {
+              if (!record) {
                   try {
                       const { championCloudVault } = await import('./infrastructure/cloud/ChampionCloudVault');
-                      allChampions = await championCloudVault.getAllCloudChampions();
+                      const cloudLineages = await championCloudVault.getAllCloudLineages();
+                      record = cloudLineages.sort((a, b) => b.generation - a.generation)[0] ?? null;
                   } catch (cloudErr) {
                       console.error("Cloud boot restoration failed", cloudErr);
                   }
               }
 
-              if (allChampions.length > 0 && generation === 1) {
-                  // Find the best to be the primary template
-                  const bestEntry = allChampions.sort((a,b) => b.generation - a.generation)[0];
-                  const snapshot = bestEntry.snapshot as any;
+              if (record && generation === 1) {
+                  applyLineageRecord(record, false);
+                  setGeneration(record.generation);
 
-                  const org = AtomicNormalizer.sanitize({
-                      ...snapshot,
-                      neuralGenome: snapshot.neuralGenome || snapshot.genome
-                  });
-
-                  if (!org.neuralGenome) return;
-
-                  // 1. Sync the Blueprint Editor
-                  blueprintService.importOrganism(org);
-                  setBlueprintCells(blueprintService.getCells());
-                  setBlueprintType(org.shape || ShapeType.CUBE);
-                  setEditingOrganism(org);
-
-                  // 2. Sync the Simulation Engine (restore all families)
-                  const sanitizedChamps = allChampions.map(c => AtomicNormalizer.sanitize(c.snapshot));
-                  spawnCustom(org, false, sanitizedChamps); // restore from all
-                  
-                  // 3. UI Generation Update
-                  setGeneration(org.generation);
-                  
                   setHasRestoredBootSeed(true);
                   toast.info(`Local Session Restored`, {
-                      description: `Generator ${org.generation} loaded with ${allChampions.length} families.`
+                      description: `Generation ${record.generation} loaded with ${record.champions.length} families.`
                   });
               }
           } catch (err) {
@@ -145,28 +141,17 @@ function App() {
   // --- BLUEPRINT ACTIONS ---
 
   const handleLoad = (file: File) => {
-      loadCreature(file, (org) => {
-          blueprintService.importOrganism(org);
-          setBlueprintCells(blueprintService.getCells());
-          setBlueprintType(org.shape || ShapeType.CUBE);
-          setEditingOrganism(org);
+      loadCreature(file, (record) => {
+          const { template } = Serializer.buildTemplateFromLineage(record);
+          syncEditorToLineage(record, template);
           setStatus('EDITING');
       });
   };
 
   const handleLoadBatch = (file: File) => {
-      loadBatchCreatures(file, (orgs) => {
-          const sanitizedChamps = orgs.map(s => AtomicNormalizer.sanitize(s));
-          const best = sanitizedChamps.reduce((a, b) => (a.fitness ?? 0) > (b.fitness ?? 0) ? a : b);
-          
-          spawnCustom(best, false, sanitizedChamps);
-          blueprintService.importOrganism(best);
-          setBlueprintCells(blueprintService.getCells());
-          setBlueprintType(best.shape || ShapeType.CUBE);
-          setEditingOrganism(best);
+      loadBatchCreatures(file, (record) => {
+          applyLineageRecord(record, false);
           setStatus('SIMULATING');
-          
-          toast.success(`Batch loaded: ${sanitizedChamps.length} champions restored.`);
       });
   };
 
@@ -223,29 +208,16 @@ function App() {
       }
   };
 
-  const handleBulkLoad = (snapshots: Organism[]) => {
-      if (!snapshots || snapshots.length === 0) return;
+  const handleBulkLoad = (record: LineageRecord) => {
+      if (!record || record.champions.length === 0) return;
 
-      // Ensure proper normalization for everything
-      const sanitizedChamps = snapshots.map(s => AtomicNormalizer.sanitize(s));
-      
-      // Determine the overall best to be the template
-      const best = sanitizedChamps.reduce((a, b) => (a.fitness ?? 0) > (b.fitness ?? 0) ? a : b);
+      applyLineageRecord(record, false);
 
-      // We no longer strictly wipe the layout in editor! Or wait, setTemplateAndReset does it.
-      spawnCustom(best, false, sanitizedChamps);
-
-      // Synchronize editor visuals with the best champion
-      blueprintService.importOrganism(best);
-      setBlueprintCells(blueprintService.getCells());
-      setBlueprintType(best.shape || ShapeType.CUBE);
-      setEditingOrganism(best);
-      
       // Skip the editor and go straight to simulator to preserve the matrix
       setStatus('SIMULATING');
       setIsVaultOpen(false);
-      
-      toast.success(`Matrix Loaded: Synchronized ${sanitizedChamps.length} families.`);
+
+      toast.success(`Matrix Loaded: Synchronized ${record.champions.length} families.`);
   };
   
   const handleSetShape = (t: ShapeType) => {
@@ -357,7 +329,7 @@ function App() {
           <VaultPanel 
             isOpen={isVaultOpen} 
             onClose={() => setIsVaultOpen(false)} 
-            activeChampions={getAllChampions()}
+            activeLineage={getLineageRecord()}
             onLoadBulk={handleBulkLoad}
           />
         </div>

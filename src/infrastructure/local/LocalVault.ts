@@ -1,24 +1,15 @@
-import { Organism, FamilyType } from '../../domain/types';
-import { Serializer } from '../../application/Serializer';
+import { FamilyType, ChampionRecord, LineageRecord } from '../../domain/types';
 
 const DB_NAME = 'OrigamiVault';
-const DB_VERSION = 1;
-const STORE_NAME = 'champions';
-
-export interface LocalVaultEntry {
-    id: string; // e.g. slot_BRUTE
-    family: FamilyType;
-    generation: number;
-    snapshot: any;
-    updatedAt: number;
-}
+const DB_VERSION = 2;
+const STORE_NAME = 'lineages';
 
 /**
  * @propolis
  * {
  *   "role": "VAULT",
- *   "dependencies": ["@domain/types", "@application/Serializer"],
- *   "agent_instructions": "Local-first persistence using IndexedDB. Enforce the generational safeguard to prevent older genomes from overwriting champions."
+ *   "dependencies": ["@domain/types"],
+ *   "agent_instructions": "Local-first persistence using IndexedDB. Stores ONE record per lineage (body shell + champion brains), per Charter invariants 1-2 - never a per-creature body snapshot. Enforces the generational safeguard to prevent older genomes from overwriting champions."
  * }
  */
 export class LocalVault {
@@ -33,7 +24,7 @@ export class LocalVault {
             request.onupgradeneeded = (event) => {
                 const db = (event.target as IDBOpenDBRequest).result;
                 if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    db.createObjectStore(STORE_NAME, { keyPath: 'lineageId' });
                 }
             };
 
@@ -46,160 +37,78 @@ export class LocalVault {
         });
     }
 
-    public async saveChampion(org: Organism): Promise<void> {
+    public async saveLineage(record: LineageRecord): Promise<void> {
         const db = await this.getDB();
-        const family = org.family || FamilyType.APEX;
-        const id = `slot_${family}`;
-        const currentGen = org.neuralGenome?.meta?.lineageGeneration || org.generation || 1;
 
         // --- SAFEGUARD: Prevent older generations from overwriting newer ones ---
         try {
-            const existing = await new Promise<LocalVaultEntry | null>((resolve, reject) => {
+            const existing = await new Promise<LineageRecord | null>((resolve, reject) => {
                 const transaction = db.transaction([STORE_NAME], 'readonly');
                 const store = transaction.objectStore(STORE_NAME);
-                const request = store.get(id);
+                const request = store.get(record.lineageId);
                 request.onsuccess = () => resolve(request.result || null);
                 request.onerror = () => reject(request.error);
             });
 
-            if (existing && existing.generation > currentGen) {
-                console.warn(`[LocalVault Safeguard] Aborted save for ${family}: Incoming Gen ${currentGen} is older than stored Gen ${existing.generation}`);
+            if (existing && existing.generation > record.generation) {
+                console.warn(`[LocalVault Safeguard] Aborted save for lineage ${record.lineageId}: incoming Gen ${record.generation} is older than stored Gen ${existing.generation}`);
                 return;
             }
         } catch (e) {
             // If check fails, we proceed to save as a fallback to ensure we at least try to persist
         }
 
-        const entry: LocalVaultEntry = {
-            id,
-            family,
-            generation: currentGen,
-            snapshot: Serializer.serializeOrganism(org),
-            updatedAt: Date.now()
-        };
-
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([STORE_NAME], 'readwrite');
             const store = transaction.objectStore(STORE_NAME);
-            const request = store.put(entry);
+            const request = store.put(record);
 
             request.onsuccess = () => resolve();
             request.onerror = () => {
-                console.error("LocalVault saveChampion put error:", request.error);
+                console.error("LocalVault saveLineage put error:", request.error);
                 reject(request.error);
             };
         });
     }
 
-    public async getChampionByFamily(family: FamilyType): Promise<Organism | null> {
+    public async getLineage(lineageId: string): Promise<LineageRecord | null> {
         const db = await this.getDB();
-        const id = `slot_${family}`;
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([STORE_NAME], 'readonly');
             const store = transaction.objectStore(STORE_NAME);
-            const request = store.get(id);
+            const request = store.get(lineageId);
 
-            request.onsuccess = () => {
-                const entry = request.result as LocalVaultEntry | null;
-                if (!entry) return resolve(null);
-                
-                const org = Serializer.deserializeOrganism(entry.snapshot);
-                resolve(org);
-            };
-
+            request.onsuccess = () => resolve(request.result || null);
             request.onerror = () => reject(request.error);
         });
     }
 
-    public async getBestLocalChampion(): Promise<LocalVaultEntry | null> {
+    public async getChampionByFamily(lineageId: string, family: FamilyType): Promise<ChampionRecord | null> {
+        const record = await this.getLineage(lineageId);
+        if (!record) return null;
+        return record.champions.find(c => c.family === family) || null;
+    }
+
+    /**
+     * The product currently focuses on one active lineage at a time; this
+     * returns it. The schema tolerates multiple stored lineages (keyed by
+     * lineageId) for whenever the product grows beyond one project.
+     */
+    public async getMostRecentLineage(): Promise<LineageRecord | null> {
+        const all = await this.getAllLineages();
+        if (all.length === 0) return null;
+        all.sort((a, b) => b.updatedAt - a.updatedAt);
+        return all[0];
+    }
+
+    public async getAllLineages(): Promise<LineageRecord[]> {
         const db = await this.getDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([STORE_NAME], 'readonly');
             const store = transaction.objectStore(STORE_NAME);
             const request = store.getAll();
-
-            request.onsuccess = () => {
-                const results = request.result as LocalVaultEntry[];
-                if (results.length === 0) return resolve(null);
-                
-                results.sort((a, b) => b.generation - a.generation);
-                const best = results[0];
-                best.snapshot = Serializer.deserializeOrganism(best.snapshot);
-                resolve(best);
-            };
-
+            request.onsuccess = () => resolve(request.result as LineageRecord[]);
             request.onerror = () => reject(request.error);
-        });
-    }
-
-    public async getAllLocalChampions(): Promise<LocalVaultEntry[]> {
-        const db = await this.getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.getAll();
-            request.onsuccess = () => {
-                const results = request.result as LocalVaultEntry[];
-                results.forEach(r => {
-                    r.snapshot = Serializer.deserializeOrganism(r.snapshot);
-                });
-                resolve(results);
-            };
-            request.onerror = () => reject(request.error);
-        });
-    }
-
-    public async saveAllChampions(organisms: Organism[]): Promise<void> {
-        const db = await this.getDB();
-        
-        // 1. Identify which organisms should be saved (Generation Safeguard)
-        const toSave = await new Promise<Organism[]>((resolve) => {
-            const transaction = db.transaction([STORE_NAME], 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.getAll();
-            
-            request.onsuccess = () => {
-                const existingEntries = request.result as LocalVaultEntry[];
-                const filtered = organisms.filter(org => {
-                    const family = org.family || FamilyType.APEX;
-                    const id = `slot_${family}`;
-                    const currentGen = org.neuralGenome?.meta?.lineageGeneration || org.generation || 1;
-                    
-                    const existing = existingEntries.find(e => e.id === id);
-                    if (existing) {
-                        if (existing.generation > currentGen) {
-                            console.warn(`[LocalVault Safeguard] Aborted bulk save for ${family}: Incoming Gen ${currentGen} <= Stored Gen ${existing.generation}`);
-                            return false;
-                        }
-                    }
-                    return true;
-                });
-                resolve(filtered);
-            };
-            request.onerror = () => resolve([]); // Fallback to saving nothing if read fails
-        });
-
-        if (toSave.length === 0) return;
-
-        // 2. Save the identified organisms
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(STORE_NAME);
-            
-            toSave.forEach(org => {
-                const family = org.family || FamilyType.APEX;
-                const entry: LocalVaultEntry = {
-                    id: `slot_${family}`,
-                    family,
-                    generation: org.neuralGenome?.meta?.lineageGeneration || org.generation || 1,
-                    snapshot: Serializer.serializeOrganism(org),
-                    updatedAt: Date.now()
-                };
-                store.put(entry);
-            });
-
-            transaction.oncomplete = () => resolve();
-            transaction.onerror = () => reject(transaction.error);
         });
     }
 }

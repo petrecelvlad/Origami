@@ -3,10 +3,10 @@ interface Env {
   API_TOKEN: string;
 }
 
-interface ChampionRow {
-  family: string;
+interface LineageRow {
+  lineage_id: string;
+  project_name: string;
   generation: number;
-  fitness: number;
   payload: string;
   updated_at: number;
 }
@@ -22,42 +22,47 @@ function isFiniteDeep(value: unknown): boolean {
 
 async function handleGet(env: Env): Promise<Response> {
   const { results } = await env.DB.prepare(
-    "SELECT family, generation, fitness, payload, updated_at FROM champions"
-  ).all<ChampionRow>();
+    "SELECT lineage_id, project_name, generation, payload, updated_at FROM lineages"
+  ).all<LineageRow>();
   return Response.json(results);
 }
 
-async function handlePost(request: Request, env: Env, family: string): Promise<Response> {
+async function handlePost(request: Request, env: Env, lineageId: string): Promise<Response> {
   const authHeader = request.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (token !== env.API_TOKEN) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const body = await request.json<{ generation: number; fitness: number; payload: unknown }>();
+  let body: { projectName: string; generation: number; payload: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Rejected: malformed JSON body", { status: 400 });
+  }
 
-  if (!Number.isFinite(body.generation) || !Number.isFinite(body.fitness) || !isFiniteDeep(body.payload)) {
+  if (!Number.isFinite(body.generation) || !isFiniteDeep(body.payload)) {
     return new Response("Rejected: non-finite numeric field in payload", { status: 400 });
   }
 
   const result = await env.DB.prepare(
-    `INSERT INTO champions (family, generation, fitness, payload, updated_at)
+    `INSERT INTO lineages (lineage_id, project_name, generation, payload, updated_at)
      VALUES (?1, ?2, ?3, ?4, ?5)
-     ON CONFLICT(family) DO UPDATE SET
+     ON CONFLICT(lineage_id) DO UPDATE SET
+       project_name = excluded.project_name,
        generation = excluded.generation,
-       fitness = excluded.fitness,
        payload = excluded.payload,
        updated_at = excluded.updated_at
-     WHERE excluded.generation > champions.generation`
+     WHERE excluded.generation > lineages.generation`
   )
-    .bind(family, body.generation, body.fitness, JSON.stringify(body.payload), Date.now())
+    .bind(lineageId, body.projectName ?? "Unnamed Project", body.generation, JSON.stringify(body.payload), Date.now())
     .run();
 
   if (result.meta.changes === 0) {
     return new Response("Rejected: incoming generation is not newer than stored generation", { status: 409 });
   }
 
-  return Response.json({ family, generation: body.generation });
+  return Response.json({ lineageId, generation: body.generation });
 }
 
 const CORS_HEADERS: Record<string, string> = {
@@ -80,11 +85,11 @@ export default {
 
     const url = new URL(request.url);
 
-    if (request.method === "GET" && url.pathname === "/champions") {
+    if (request.method === "GET" && url.pathname === "/lineages") {
       return withCors(await handleGet(env));
     }
 
-    const postMatch = url.pathname.match(/^\/champions\/([^/]+)$/);
+    const postMatch = url.pathname.match(/^\/lineages\/([^/]+)$/);
     if (request.method === "POST" && postMatch) {
       return withCors(await handlePost(request, env, postMatch[1]));
     }

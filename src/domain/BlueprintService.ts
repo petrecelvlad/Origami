@@ -31,6 +31,13 @@ export class BlueprintService {
     return res;
   }
 
+  public loadCells(cells: BlueprintCell[]) {
+    this.clear();
+    for (const c of cells) {
+        this._setCellInternal(c.x, c.y, c.z, c.type);
+    }
+  }
+
   public setCell(x: number, y: number, z: number, type: CellType | null, mirror: boolean = false) {
     this._setCellInternal(x, y, z, type);
     if (mirror && x !== 0) {
@@ -407,7 +414,7 @@ export class BlueprintService {
 
   // --- EXPORT TO PHYSICS WITH BRAIN GRAFTING ---
 
-  public generateOrganism(id: string, source?: Organism): Organism {
+  public generateOrganism(id: string, source?: { neuralGenome: NeuralGenome; generation?: number }): Organism {
       const strategy: ILatticeStrategy = LatticeFactory.getStrategy(this.type);
       
       const nodes: Node[] = [];

@@ -1,11 +1,10 @@
-import { Organism, FamilyType } from '../domain/types';
-import { AtomicNormalizer } from '../domain/AtomicNormalizer';
+import { Organism, FamilyType, ChampionRecord } from '../domain/types';
 
 export class LineageManager {
   private currentLineageId: string = '';
   private currentProjectName: string = 'Unnamed Project';
   private generationCount: number = 1;
-  private familyChampions: Map<FamilyType, Organism> = new Map();
+  private familyChampions: Map<FamilyType, ChampionRecord> = new Map();
 
   public initialize(projectName: string, initialGeneration: number = 1) {
     this.currentLineageId = `lin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -35,11 +34,11 @@ export class LineageManager {
   public get lineageId(): string { return this.currentLineageId; }
   public get projectName(): string { return this.currentProjectName; }
 
-  public setChampion(family: FamilyType, organism: Organism) {
-    this.familyChampions.set(family, AtomicNormalizer.sanitize(organism));
+  public setChampion(family: FamilyType, champion: ChampionRecord) {
+    this.familyChampions.set(family, champion);
   }
 
-  public getChampion(family: FamilyType): Organism | undefined {
+  public getChampion(family: FamilyType): ChampionRecord | undefined {
     return this.familyChampions.get(family);
   }
 
@@ -47,14 +46,14 @@ export class LineageManager {
     this.familyChampions.clear();
   }
 
-  public getAllChampions(): Organism[] {
+  public getAllChampions(): ChampionRecord[] {
     return Array.from(this.familyChampions.values());
   }
 
-  public bulkLoadChampions(champions: Organism[]) {
+  public bulkLoadChampions(champions: ChampionRecord[]) {
     champions.forEach(champ => {
       if (champ.family) {
-        this.familyChampions.set(champ.family as FamilyType, AtomicNormalizer.sanitize(champ));
+        this.familyChampions.set(champ.family, champ);
       }
     });
   }

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { EvolutionService } from './EvolutionService';
-import { Organism, ShapeType, FamilyType } from '../domain/types';
+import { Organism, ShapeType, FamilyType, ChampionRecord, LineageRecord } from '../domain/types';
 import { INITIAL_SHAPE } from '../domain/constants';
 import { useSimulationEngine } from './useSimulationEngine';
 import { usePhysicsSettings } from './usePhysicsSettings';
 import { usePersistence } from './usePersistence';
-import { localVault } from '../infrastructure/local/LocalVault';
+import { Serializer } from './Serializer';
 import { toast } from 'sonner';
 
 /**
@@ -35,7 +35,7 @@ export function useEvolutionLoop() {
       settingsRef.current = settings;
   }, [settings]);
   
-  const spawnCustom = useCallback((organism: Organism, autoStart: boolean = false, bulkChampions?: Organism[]) => {
+  const spawnCustom = useCallback((organism: Organism, autoStart: boolean = false, bulkChampions?: ChampionRecord[]) => {
     serviceRef.current!.setTemplateAndReset(organism, bulkChampions);
     const restoredGen = serviceRef.current!.currentGeneration;
     
@@ -62,7 +62,15 @@ export function useEvolutionLoop() {
     engine.setIsFastForward(false);
   }, [engine, serviceRef]);
 
-  const persistence = usePersistence(serviceRef, spawnCustom);
+  // Bare restore for the silent background autoload below — no blueprint
+  // editor to sync here. App.tsx defines its own richer version for
+  // user-triggered file/vault loads, which also syncs the editor.
+  const spawnFromLineage = useCallback((record: LineageRecord, autoStart: boolean = false) => {
+    const { template, champions } = Serializer.buildTemplateFromLineage(record);
+    spawnCustom(template, autoStart, champions);
+  }, [spawnCustom]);
+
+  const persistence = usePersistence(serviceRef, spawnFromLineage);
 
   // Initialize
   useEffect(() => {
@@ -164,7 +172,7 @@ export function useEvolutionLoop() {
 
         // Use persistence instead of direct vault call
         if (gen % settingsRef.current.vaultSaveFrequency === 0) {
-            persistence.autosaveChampions()
+            persistence.autosaveLineage()
                 .then(() => toast.success(`Generation ${gen} saved to vault!`))
                 .catch(err => {
                     console.error("Generation save failed", err);
@@ -185,8 +193,8 @@ export function useEvolutionLoop() {
 
     service.initializePopulation(INITIAL_SHAPE);
     
-    // Use persistence.autoloadChampions
-    persistence.autoloadChampions().catch(err => {
+    // Use persistence.autoloadLineage
+    persistence.autoloadLineage().catch(err => {
         console.error("Failed to load vault", err);
         // Removed setPopulation
     });
@@ -243,8 +251,8 @@ export function useEvolutionLoop() {
     };
   }, [engine.isRunning, loop]);
 
-  const getAllChampions = useCallback(() => {
-      return serviceRef.current!.getAllChampions();
+  const getLineageRecord = useCallback(() => {
+      return serviceRef.current!.getLineageRecord();
   }, []);
 
   return {
@@ -255,7 +263,7 @@ export function useEvolutionLoop() {
     spawnCustom,
     reset,
     evolve,
-    getAllChampions,
+    getLineageRecord,
     familyOrder,
     cycleTrackedLeader: (dir: 1 | -1) => {
         const sorted = [...serviceRef.current!.population].sort((a,b) => b.fitness - a.fitness);

@@ -1,33 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-    Archive, X, Trash2, Download, Save,
-    Zap, Database, AlertTriangle, History, CloudUpload
+    X, Download, Save,
+    Zap, Database, History, CloudUpload
 } from 'lucide-react';
 import { localVault } from '../infrastructure/local/LocalVault';
 import { championCloudVault } from '../infrastructure/cloud/ChampionCloudVault';
 import { toast } from 'sonner';
-import { Organism, FamilyType } from '../domain/types';
+import { FamilyType, LineageRecord } from '../domain/types';
 import { FAMILY_COLORS } from '../domain/genetics/GeneticOperator';
 import { isAdminBuild } from '../config';
 
 interface VaultPanelProps {
     isOpen: boolean;
     onClose: () => void;
-    activeChampions: Organism[];
-    onLoadBulk: (snapshots: Organism[]) => void;
+    activeLineage: LineageRecord;
+    onLoadBulk: (record: LineageRecord) => void;
 }
 
-export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeChampions, onLoadBulk }) => {
-    const [localVaultData, setLocalVaultData] = useState<any[]>([]);
+export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeLineage, onLoadBulk }) => {
+    const [storedLineage, setStoredLineage] = useState<LineageRecord | null>(null);
     const [loading, setLoading] = useState(false);
     const [cloudLoading, setCloudLoading] = useState(false);
-    const [showPurgeAllConfirm, setShowPurgeAllConfirm] = useState(false);
 
     const fetchLocalData = async () => {
         try {
-            const data = await localVault.getAllLocalChampions();
-            setLocalVaultData(data);
+            const record = await localVault.getMostRecentLineage();
+            setStoredLineage(record);
         } catch (err) {
             console.error("Failed to fetch local vault", err);
         }
@@ -38,20 +37,6 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeC
             fetchLocalData();
         }
     }, [isOpen]);
-
-    const handlePurgeAll = async () => {
-        setLoading(true);
-        try {
-            // Since localVault doesn't have an empty/clear method, we'll suggest manual clearing
-            // Or if it does, we should use it. For now let's just toast
-            toast.error("Manual purge required via Browser Storage settings");
-            setShowPurgeAllConfirm(false);
-        } catch (err) {
-            toast.error("Mass purge failed");
-        } finally {
-            setLoading(false);
-        }
-    };
 
     return (
         <AnimatePresence>
@@ -99,8 +84,8 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeC
                         <div className="flex-1 overflow-y-auto p-6 space-y-6">
                             
                             {/* Manual Snapshot Button */}
-                            {activeChampions.length > 0 && (
-                                <motion.div 
+                            {activeLineage.champions.length > 0 && (
+                                <motion.div
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     className="p-4 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/20 hover:bg-slate-800/40 transition-all space-y-3"
@@ -110,15 +95,13 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeC
                                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                             <span className="text-[10px] font-bold text-slate-200 uppercase tracking-widest">Active Matrix</span>
                                         </div>
-                                        <span className="text-[9px] font-mono text-slate-500">{activeChampions.length} Families</span>
+                                        <span className="text-[9px] font-mono text-slate-500">{activeLineage.champions.length} Families</span>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={async () => {
                                             setLoading(true);
                                             try {
-                                                for (const champ of activeChampions) {
-                                                    await localVault.saveChampion(champ);
-                                                }
+                                                await localVault.saveLineage(activeLineage);
                                                 fetchLocalData();
                                                 toast.success("Matrix Push Successful");
                                             } catch (err) {
@@ -139,13 +122,8 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeC
                                             onClick={async () => {
                                                 setCloudLoading(true);
                                                 try {
-                                                    const { pushed, skipped } = await championCloudVault.pushAllChampions(activeChampions);
-                                                    if (pushed.length > 0) {
-                                                        toast.success(`Pushed to Cloud: ${pushed.join(', ')}`);
-                                                    }
-                                                    if (skipped.length > 0) {
-                                                        toast.info(`Skipped (no token / cancelled): ${skipped.join(', ')}`);
-                                                    }
+                                                    await championCloudVault.pushLineage(activeLineage);
+                                                    toast.success(`Pushed to Cloud: generation ${activeLineage.generation}`);
                                                 } catch (err) {
                                                     toast.error(err instanceof Error ? err.message : 'Cloud push failed');
                                                 } finally {
@@ -162,7 +140,7 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeC
                                 </motion.div>
                             )}
 
-                            {/* Family Slots Grid */}
+                            {/* Stored Lineage Summary */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between px-1">
                                     <div className="space-y-0.5">
@@ -170,33 +148,33 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeC
                                             IndexedDB Archive
                                         </span>
                                         <span className="text-[9px] font-mono text-slate-600 block">
-                                            {localVaultData.length} / 10 STORED
+                                            {storedLineage ? `${storedLineage.champions.length} / 10 STORED` : 'EMPTY'}
                                         </span>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-2 relative">
                                     {Object.values(FamilyType).map((fam) => {
-                                        const entry = localVaultData.find(v => v.snapshot.family === fam || v.id === `slot_${fam}`);
+                                        const champ = storedLineage?.champions.find(c => c.family === fam);
                                         const color = FAMILY_COLORS[fam as FamilyType];
 
                                         return (
-                                            <div 
+                                            <div
                                                 key={fam}
-                                                className={`group relative bg-slate-800/40 border-l-4 border-r border-t border-b rounded-xl p-3 transition-all ${entry ? 'border-slate-700/50 opacity-100' : 'border-slate-800/20 opacity-40'}`}
+                                                className={`group relative bg-slate-800/40 border-l-4 border-r border-t border-b rounded-xl p-3 transition-all ${champ ? 'border-slate-700/50 opacity-100' : 'border-slate-800/20 opacity-40'}`}
                                                 style={{ borderLeftColor: color }}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <div className="space-y-0.5">
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-[10px] font-bold text-slate-200 tracking-tight">{fam}</span>
-                                                            {!entry && <span className="text-[8px] font-mono text-slate-600 uppercase">DEPOT VACANT</span>}
+                                                            {!champ && <span className="text-[8px] font-mono text-slate-600 uppercase">DEPOT VACANT</span>}
                                                         </div>
-                                                        
-                                                        {entry && (
+
+                                                        {champ && (
                                                             <div className="flex items-center gap-3 text-[9px] font-mono text-slate-500">
-                                                                <span className="flex items-center gap-1"><History className="w-3 h-3 text-emerald-500/50" /> Gen {entry.snapshot.neuralGenome?.meta?.lineageGeneration || entry.snapshot.generation}</span>
-                                                                <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500/50" /> {Math.round(entry.snapshot.fitness)}</span>
+                                                                <span className="flex items-center gap-1"><History className="w-3 h-3 text-emerald-500/50" /> Gen {champ.generation}</span>
+                                                                <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500/50" /> {Math.round(champ.fitness)}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -206,10 +184,10 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeC
                                     })}
                                 </div>
 
-                                {localVaultData.length > 0 && (
+                                {storedLineage && storedLineage.champions.length > 0 && (
                                     <button
                                         onClick={() => {
-                                            onLoadBulk(localVaultData.map(d => d.snapshot));
+                                            if (storedLineage) onLoadBulk(storedLineage);
                                         }}
                                         className="w-full mt-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20 shadow-xl text-white"
                                     >

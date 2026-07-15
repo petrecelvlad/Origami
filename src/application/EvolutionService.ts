@@ -8,15 +8,12 @@
  * }
  */
 import { BioPhysicsEngine } from '../domain/BioPhysicsEngine';
-import { Organism, ShapeType, NeuralGenome, FoodItem, Node, Muscle, CellType, FamilyType } from '../domain/types';
+import { Organism, ShapeType, Node, Muscle, CellType, FamilyType, ChampionRecord, LineageRecord, BlueprintCell } from '../domain/types';
 import { ShapeFactory } from '../domain/ShapeFactory';
-import { VectorOps } from '../domain/math';
 import { GeneticOperator, FAMILY_COLORS } from '../domain/genetics/GeneticOperator';
 import { IFitnessEvaluator, StandardFitnessEvaluator } from '../domain/fitness/FitnessEvaluator';
 import { BrainController } from '../domain/neural/BrainController';
 import { DEFAULT_EVOLUTION_CONFIG, DEFAULT_SIMULATION_CONFIG } from '../domain/constants';
-import { LatticeFactory } from '../domain/lattice/LatticeStrategy';
-import { AtomicNormalizer } from '../domain/AtomicNormalizer';
 import { FamilyRegistry } from '../domain/genetics/FamilyRegistry';
 
 import { MetabolicService, MetabolicConfig } from './MetabolicService';
@@ -90,7 +87,7 @@ export class EvolutionService {
   private updateListeners: ((pop: Organism[], time: number) => void)[] = [];
   private genCompleteListeners: ((best: Organism, gen: number) => void)[] = [];
   private newGenListeners: ((pop: Organism[]) => void)[] = [];
-  private pulseListeners: ((champions: Organism[], gen: number) => void)[] = [];
+  private pulseListeners: ((champions: ChampionRecord[], gen: number) => void)[] = [];
 
   constructor() {
     this.engine = new BioPhysicsEngine();
@@ -204,30 +201,29 @@ export class EvolutionService {
         this.template.generation = 1;
     }
     
-    this.spawnGeneration([], true);
+    this.spawnGeneration(true);
   }
 
-  public setTemplateAndReset(organism: Organism, preloadedChampions?: Organism[]): void {
-    this.deadPool = []; 
+  public setTemplateAndReset(organism: Organism, preloadedChampions?: ChampionRecord[]): void {
+    this.deadPool = [];
     this.population = [];
-    
-    const sanitized = AtomicNormalizer.sanitize(organism);
-    this.lineage.adopt(sanitized);
 
-    this.template = sanitized;
-    this.template!.headNode = this.template!.nodes.find(n => n.isHead) ?? this.template!.nodes[0];
-    this.template!.generation = this.lineage.generation;
-    
+    this.lineage.adopt(organism);
+
+    this.template = organism;
+    this.template.headNode = this.template.nodes.find(n => n.isHead) ?? this.template.nodes[0];
+    this.template.generation = this.lineage.generation;
+
     console.log(`[EvolutionService] Lineage Adopted: ID ${this.lineage.lineageId}, Name ${this.lineage.projectName}, Age ${this.lineage.generation}`);
-    
+
     if (preloadedChampions && preloadedChampions.length > 0) {
         this.lineage.bulkLoadChampions(preloadedChampions);
-        this.spawnGeneration([], false); 
+        this.spawnGeneration(false);
     } else {
         const fam = this.template.family || FamilyType.BRUTE;
         this.template.family = fam;
-        this.lineage.setChampion(fam as FamilyType, this.template);
-        this.spawnGeneration([], false); 
+        this.lineage.setChampion(fam, Serializer.serializeChampion(this.template));
+        this.spawnGeneration(false);
     }
   }
 
@@ -244,7 +240,7 @@ export class EvolutionService {
       });
   }
 
-  private spawnGeneration(tournamentPool: Organism[], resetGen: boolean): void {
+  private spawnGeneration(resetGen: boolean): void {
       if (!this.template) return;
 
       this.cleanupAndPoolCurrentPopulation();
@@ -296,12 +292,12 @@ export class EvolutionService {
               }
               
               if (i === 0 && champion) {
-                  this.geneticOperator.cloneGenome(champion.neuralGenome, child.neuralGenome);
+                  this.geneticOperator.cloneGenome(champion.genome, child.neuralGenome);
               } else {
                   if (!champion) {
                       this.seedGenerationOne(child, fam);
                   } else {
-                      this.geneticOperator.cloneGenome(champion.neuralGenome, child.neuralGenome);
+                      this.geneticOperator.cloneGenome(champion.genome, child.neuralGenome);
                       const mutationRate = i * 0.005;
                       this.geneticOperator.mutateGenome(child.neuralGenome, mutationRate);
                   }
@@ -413,21 +409,47 @@ export class EvolutionService {
       }
   }
 
-  public getAllChampions(): Organism[] {
+  public getAllChampions(): ChampionRecord[] {
       return this.lineage.getAllChampions();
+  }
+
+  // The body shell is stored once per lineage (Charter invariants 1-2): derive
+  // its blueprint from the template's own grid-coord/cellType metadata rather
+  // than tracking a second copy anywhere.
+  private getBlueprintCells(): BlueprintCell[] {
+      if (!this.template) return [];
+      return this.template.nodes
+          .filter(n => n.originalGridCoord)
+          .map(n => ({ ...n.originalGridCoord!, type: n.cellType ?? CellType.BODY }));
+  }
+
+  public getLineageRecord(): LineageRecord {
+      return {
+          lineageId: this.lineage.lineageId,
+          projectName: this.lineage.projectName,
+          generation: this.lineage.generation,
+          shape: this.template?.shape ?? ShapeType.CUBE,
+          blueprint: this.getBlueprintCells(),
+          champions: this.lineage.getAllChampions(),
+          updatedAt: Date.now()
+      };
   }
 
   public getBestOrganism(): Organism | null {
       if (this.population.length === 0) return null;
       const sorted = [...this.population].sort((a, b) => b.fitness - a.fitness);
       const best = sorted[0];
-      
-      const cleanCopy = Serializer.deserializeOrganism(Serializer.serializeOrganism(best));
+
+      const championRecord = Serializer.serializeChampion(best);
+      const cleanCopy = Serializer.buildOrganism(
+          { shape: this.template?.shape ?? best.shape, blueprint: this.getBlueprintCells() },
+          championRecord
+      );
       cleanCopy.generation = this.currentGeneration;
-      
+
       return cleanCopy;
   }
-  
+
   public getLeader(): Organism | null {
       if (this.population.length === 0) return null;
       
@@ -582,7 +604,7 @@ export class EvolutionService {
               
               // FALLBACK: If no champion in memory, try to pull from the Vault (Local DB)
               if (!partnerChampion) {
-                  const vaultChamp = await localVault.getChampionByFamily(partnerFam);
+                  const vaultChamp = await localVault.getChampionByFamily(this.lineage.lineageId, partnerFam);
                   if (vaultChamp) {
                       partnerChampion = vaultChamp;
                       // Update memory map so we don't have to hit DB every single time for this partner
@@ -591,14 +613,14 @@ export class EvolutionService {
               }
 
               const targetFamily = FamilyRegistry.synthesize(parent.family!, partnerFam);
-              
+
               const hybridKid = this.createOrganismFromTemplate(this.template!, `fam_${targetFamily}_g${this.currentGeneration}_h${idx}_${Date.now()}`);
               hybridKid.family = targetFamily;
               hybridKid.color = FAMILY_COLORS[targetFamily];
-              
+
               if (partnerChampion) {
                   // Crossover 80% parent dominance
-                  this.geneticOperator.crossoverGenomes(parent.neuralGenome, partnerChampion.neuralGenome, hybridKid.neuralGenome);
+                  this.geneticOperator.crossoverGenomes(parent.neuralGenome, partnerChampion.genome, hybridKid.neuralGenome);
                   // Apply minor mutation to prevent stagnation
                   this.geneticOperator.mutateGenome(hybridKid.neuralGenome, ENGINE_CONFIG.evolution.breedingMutationRate); 
               } else {
@@ -619,11 +641,11 @@ export class EvolutionService {
           if (!learner.isAlive || !learner.family) continue;
           
           const champion = this.lineage.getChampion(learner.family);
-          if (!champion || champion.id === learner.id) continue;
-          
-          const learningRate = ENGINE_CONFIG.evolution.socialLearningRate; 
+          if (!champion) continue;
+
+          const learningRate = ENGINE_CONFIG.evolution.socialLearningRate;
           const lg = learner.neuralGenome;
-          const bg = champion.neuralGenome;
+          const bg = champion.genome;
           
           for(let k=0; k<lg.synapseWeights.length; k++) {
               if (bg.synapseWeights[k] !== undefined) {
@@ -720,13 +742,13 @@ export class EvolutionService {
         const familyMembers = this.population.filter(org => org.family === fam);
         if (familyMembers.length > 0) {
             familyMembers.sort((a,b) => b.fitness - a.fitness);
-            const safeOrg = Serializer.deserializeOrganism(Serializer.serializeOrganism(familyMembers[0]));
+            const championRecord = Serializer.serializeChampion(familyMembers[0]);
             // Update to new generation before setting
-            safeOrg.generation = this.lineage.generation + 1;
-            if (safeOrg.neuralGenome?.meta) {
-                safeOrg.neuralGenome.meta.lineageGeneration = this.lineage.generation + 1;
+            championRecord.generation = this.lineage.generation + 1;
+            if (championRecord.genome.meta) {
+                championRecord.genome.meta.lineageGeneration = this.lineage.generation + 1;
             }
-            this.lineage.setChampion(fam, safeOrg);
+            this.lineage.setChampion(fam, championRecord);
         }
     });
 
@@ -750,18 +772,10 @@ export class EvolutionService {
     this.notifyGenComplete(bestOrganism, this.lineage.generation);
 
     if (this.lineage.generation % this.vaultSaveFrequency === 0) {
-        this.pulseListeners.forEach(l => l(this.lineage.getAllChampions(), this.lineage.generation)); 
+        this.pulseListeners.forEach(l => l(this.lineage.getAllChampions(), this.lineage.generation));
     }
 
-    const poolSize = Math.max(2, Math.floor(this.populationSize * 0.2));
-    const tournamentPool = this.population.slice(0, poolSize).map(org => {
-        const serialized = Serializer.serializeOrganism(org);
-        serialized.nodes = [];
-        serialized.muscles = [];
-        return Serializer.deserializeOrganism(serialized);
-    });
-
-    this.spawnGeneration(tournamentPool, false);
+    this.spawnGeneration(false);
   }
 
   private createOrganismFromTemplate(template: Organism, newId: string): Organism {
@@ -878,7 +892,7 @@ export class EvolutionService {
   public subscribe(type: 'update', cb: (pop: Organism[], time: number) => void): () => void;
   public subscribe(type: 'genComplete', cb: (best: Organism, gen: number) => void): () => void;
   public subscribe(type: 'newGen', cb: (pop: Organism[]) => void): () => void;
-  public subscribe(type: 'pulse', cb: (champions: Organism[], gen: number) => void): () => void;
+  public subscribe(type: 'pulse', cb: (champions: ChampionRecord[], gen: number) => void): () => void;
   public subscribe(type: string, cb: any): () => void {
       if (type === 'update') {
           this.updateListeners.push(cb);
@@ -902,7 +916,7 @@ export class EvolutionService {
   public onUpdate(cb: (pop: Organism[], time: number) => void) { this.subscribe('update', cb); }
   public onGenComplete(cb: (best: Organism, gen: number) => void) { this.subscribe('genComplete', cb); }
   public onNewGeneration(cb: (pop: Organism[]) => void) { this.subscribe('newGen', cb); }
-  public onPulse(cb: (champions: Organism[], gen: number) => void) { this.subscribe('pulse', cb); }
+  public onPulse(cb: (champions: ChampionRecord[], gen: number) => void) { this.subscribe('pulse', cb); }
 
   private notifyUpdate(pop: Organism[], time: number) { this.updateListeners.forEach(l => l(pop, time)); }
   private notifyGenComplete(best: Organism, gen: number) { this.genCompleteListeners.forEach(l => l(best, gen)); }

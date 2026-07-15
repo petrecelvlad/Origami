@@ -1,21 +1,12 @@
-import { FamilyType, Organism } from '../../domain/types';
-import { Serializer } from '../../application/Serializer';
+import { LineageRecord } from '../../domain/types';
 import { isAdminBuild } from '../../config';
 
 const CLOUD_API_BASE = 'https://origami-champions-api.contact-youos.workers.dev';
 
-export interface CloudVaultEntry {
-    family: FamilyType;
+interface LineageRow {
+    lineage_id: string;
+    project_name: string;
     generation: number;
-    fitness: number;
-    snapshot: any;
-    updatedAt: number;
-}
-
-interface ChampionRow {
-    family: string;
-    generation: number;
-    fitness: number;
     payload: string;
     updated_at: number;
 }
@@ -24,34 +15,25 @@ interface ChampionRow {
  * @propolis
  * {
  *   "role": "VAULT",
- *   "dependencies": ["@domain/types", "@application/Serializer"],
- *   "agent_instructions": "Cloud mirror of LocalVault, sourced from the origami-champions-api Worker. getAllCloudChampions is safe in any build. pushChampion/pushAllChampions are gated on isAdminBuild (VITE_ADMIN_BUILD, set via a gitignored .env.local for local admin use only) — Vite dead-code-eliminates that branch (and the in-memory token it holds) from any build where the flag isn't set at build time, so the public deploy never ships write capability or a token. Do not remove the isAdminBuild guard."
+ *   "dependencies": ["@domain/types"],
+ *   "agent_instructions": "Cloud mirror of LocalVault, sourced from the origami-champions-api Worker. Stores ONE record per lineage (body shell + champion brains), per Charter invariants 1-2. getAllCloudLineages is safe in any build. pushLineage is gated on isAdminBuild (VITE_ADMIN_BUILD, set via a gitignored .env.local for local admin use only) - Vite dead-code-eliminates that branch (and the in-memory token it holds) from any build where the flag isn't set at build time, so the public deploy never ships write capability or a token. Do not remove the isAdminBuild guard."
  * }
  */
 export class ChampionCloudVault {
     private devToken: string | null = null;
 
-    public async getAllCloudChampions(): Promise<CloudVaultEntry[]> {
-        const response = await fetch(`${CLOUD_API_BASE}/champions`);
+    public async getAllCloudLineages(): Promise<LineageRecord[]> {
+        const response = await fetch(`${CLOUD_API_BASE}/lineages`);
         if (!response.ok) {
             throw new Error(`Cloud vault fetch failed: ${response.status}`);
         }
-        const rows: ChampionRow[] = await response.json();
-        return rows.map(row => ({
-            family: row.family as FamilyType,
-            generation: row.generation,
-            fitness: row.fitness,
-            snapshot: JSON.parse(row.payload),
-            updatedAt: row.updated_at
-        }));
+        const rows: LineageRow[] = await response.json();
+        return rows.map(row => JSON.parse(row.payload) as LineageRecord);
     }
 
-    public async pushChampion(org: Organism): Promise<{ family: string; generation: number } | null> {
+    public async pushLineage(record: LineageRecord): Promise<{ lineageId: string; generation: number } | null> {
         if (!isAdminBuild) {
             throw new Error('Cloud push is only available in the admin build.');
-        }
-        if (!org.family) {
-            throw new Error('Cannot push a champion with no family assigned.');
         }
 
         if (!this.devToken) {
@@ -59,17 +41,16 @@ export class ChampionCloudVault {
             if (!this.devToken) return null;
         }
 
-        const generation = org.neuralGenome?.meta?.lineageGeneration ?? org.generation ?? 1;
-        const response = await fetch(`${CLOUD_API_BASE}/champions/${org.family}`, {
+        const response = await fetch(`${CLOUD_API_BASE}/lineages/${record.lineageId}`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${this.devToken}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                generation,
-                fitness: org.fitness ?? 0,
-                payload: Serializer.serializeOrganism(org)
+                projectName: record.projectName,
+                generation: record.generation,
+                payload: record
             })
         });
 
@@ -78,23 +59,9 @@ export class ChampionCloudVault {
             throw new Error('Cloud push rejected: bad token.');
         }
         if (!response.ok) {
-            throw new Error(`Cloud push failed for ${org.family}: ${response.status}`);
+            throw new Error(`Cloud push failed for lineage ${record.lineageId}: ${response.status}`);
         }
         return response.json();
-    }
-
-    public async pushAllChampions(orgs: Organism[]): Promise<{ pushed: string[]; skipped: string[] }> {
-        const pushed: string[] = [];
-        const skipped: string[] = [];
-        for (const org of orgs) {
-            const result = await this.pushChampion(org);
-            if (result) {
-                pushed.push(result.family);
-            } else if (org.family) {
-                skipped.push(org.family);
-            }
-        }
-        return { pushed, skipped };
     }
 }
 

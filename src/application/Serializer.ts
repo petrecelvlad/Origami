@@ -1,129 +1,70 @@
-import { Organism, Node, Muscle, NeuralGenome, FoodItem } from '../domain/types';
+import { Organism, ChampionRecord, LineageRecord, FamilyType } from '../domain/types';
+import { GeneticOperator, FAMILY_COLORS } from '../domain/genetics/GeneticOperator';
+import { BlueprintService } from '../domain/BlueprintService';
 
 /**
  * @propolis
  * {
  *   "role": "VAULT",
- *   "dependencies": ["@domain/types"],
- *   "agent_instructions": "Handles the deep serialization of complex organisms. Ensure circular references are stripped before storage."
+ *   "dependencies": ["@domain/types", "@domain/BlueprintService", "@domain/genetics/GeneticOperator"],
+ *   "constraints": ["Charter invariants 1-2: a stored champion is a brain plus identity; bodies are never persisted per creature"],
+ *   "agent_instructions": "Converts between stored records (ChampionRecord/LineageRecord) and live organisms. Construction from blueprint IS deserialization — do not reintroduce full-organism snapshots."
  * }
  */
 export class Serializer {
+    private static genetics = new GeneticOperator();
+
     /**
-     * Deeply freezes/serializes an organism for storage (IndexedDB/Firebase)
-     * Strips out circular references and runtime instances (like brain, nodeRefs).
+     * Capture a live organism's evolving state: brain + identity, nothing else.
+     * The genome is deep-copied so the record never aliases live arrays.
      */
-    public static serializeOrganism(org: Organism): Omit<Organism, 'brain' | 'headNode'> {
+    public static serializeChampion(org: Organism): ChampionRecord {
         return {
-            id: org.id,
-            family: org.family,
-            color: org.color,
-            shape: org.shape,
-            // Reconstruct nodes without potentially problematic states
-            nodes: org.nodes.map(n => ({
-                id: n.id,
-                pos: { x: n.pos.x, y: n.pos.y, z: n.pos.z },
-                oldPos: { x: n.oldPos.x, y: n.oldPos.y, z: n.oldPos.z },
-                mass: n.mass,
-                friction: n.friction,
-                isFixed: n.isFixed,
-                isHead: n.isHead,
-                isGripping: n.isGripping,
-                gripSignal: n.gripSignal,
-                gripStamina: n.gripStamina,
-                gripCooldown: n.gripCooldown,
-                currentStress: n.currentStress,
-                originalGridCoord: n.originalGridCoord ? { ...n.originalGridCoord } : undefined,
-                cellType: n.cellType
-            })),
-            // Reconstruct muscles without nodeRefs
-            muscles: org.muscles.map(m => ({
-                id: m.id,
-                nodeA: m.nodeA,
-                nodeB: m.nodeB,
-                baseLength: m.baseLength,
-                stiffness: m.stiffness,
-                dnaIndex: m.dnaIndex,
-                currentLength: m.currentLength,
-                targetLength: m.targetLength,
-                phase: m.phase,
-                freq: m.freq,
-                amp: m.amp,
-                isMirrored: m.isMirrored,
-                mirrorMuscleId: m.mirrorMuscleId
-            })),
-            neuralGenome: { ...org.neuralGenome, meta: org.neuralGenome.meta ? { ...org.neuralGenome.meta } : undefined },
-            fitness: org.fitness,
-            generation: org.generation,
-            initialHeadPos: { x: org.initialHeadPos.x, y: org.initialHeadPos.y, z: org.initialHeadPos.z },
-            distanceTraveled: org.distanceTraveled,
-            lastSampledPos: org.lastSampledPos ? { x: org.lastSampledPos.x, y: org.lastSampledPos.y, z: org.lastSampledPos.z } : undefined,
-            odometer: org.odometer,
-            visitedTiles: org.visitedTiles ? { ...org.visitedTiles } : undefined,
-            // odometerTimer skipped or included
-            odometerTimer: org.odometerTimer,
-            energy: org.energy,
-            maxEnergy: org.maxEnergy,
-            hungerTime: org.hungerTime,
-            timeAlive: org.timeAlive,
-            isAlive: org.isAlive,
-            foodEaten: org.foodEaten,
-            foodForBreeding: org.foodForBreeding,
-            totalFoodEaten: org.totalFoodEaten,
-            visibleFood: org.visibleFood.map(f => ({ ...f })), // Shallow copy visible defaults
-        } as Omit<Organism, 'brain' | 'headNode'>;
+            family: (org.family ?? FamilyType.BRUTE) as FamilyType,
+            generation: org.neuralGenome?.meta?.lineageGeneration ?? org.generation ?? 1,
+            fitness: org.fitness ?? 0,
+            genome: Serializer.genetics.cloneGenome(org.neuralGenome)
+        };
     }
 
     /**
-     * Parses a stringified or raw JSON organism and returns a safely formatted complete Organism.
-     * Note: "brain" property is omitted inherently and must be re-attached using a Neural engine.
+     * Rebuild a live organism from stored records: the lineage's body shell
+     * (blueprint DNA) + one champion brain. Every creature built this way
+     * spawns from the identical shell in the identical pose.
      */
-    public static deserializeOrganism(data: any): Organism {
-        // Fallback for when data parsed might be null or deeply malformed
-        if (!data || typeof data !== 'object') throw new Error('Invalid organism data structure');
-        
-        const nodes: Node[] = (data.nodes || []).map((n: any) => ({
-            ...n
-        }));
+    public static buildOrganism(lineage: Pick<LineageRecord, 'shape' | 'blueprint'>, champion: ChampionRecord): Organism {
+        const blueprint = new BlueprintService();
+        blueprint.setType(lineage.shape);
+        blueprint.loadCells(lineage.blueprint);
 
-        const muscles: Muscle[] = (data.muscles || []).map((m: any) => ({
-            ...m
-        }));
-
-        // Link nodeRefs dynamically 
-        muscles.forEach(m => {
-             m.nodeRefA = nodes.find(node => node.id === m.nodeA);
-             m.nodeRefB = nodes.find(node => node.id === m.nodeB);
+        const org = blueprint.generateOrganism(`champ_${champion.family}_${Date.now()}`, {
+            neuralGenome: Serializer.genetics.cloneGenome(champion.genome),
+            generation: champion.generation
         });
+        org.family = champion.family;
+        org.color = FAMILY_COLORS[champion.family];
+        org.fitness = champion.fitness;
+        return org;
+    }
 
-        const orgBase: Organism = {
-            id: data.id || `org_${Math.random().toString(36).substring(7)}`,
-            family: data.family,
-            color: data.color || '#ffffff',
-            shape: data.shape || 'CUBE',
-            nodes,
-            muscles,
-            neuralGenome: { ...data.neuralGenome },
-            fitness: typeof data.fitness === 'number' ? data.fitness : 0,
-            generation: typeof data.generation === 'number' ? data.generation : 0,
-            initialHeadPos: data.initialHeadPos || { x: 0, y: 0, z: 0 },
-            distanceTraveled: typeof data.distanceTraveled === 'number' ? data.distanceTraveled : 0,
-            odometer: typeof data.odometer === 'number' ? data.odometer : 0,
-            lastSampledPos: data.lastSampledPos,
-            visitedTiles: data.visitedTiles || {},
-            energy: typeof data.energy === 'number' ? data.energy : 100,
-            maxEnergy: typeof data.maxEnergy === 'number' ? data.maxEnergy : 100,
-            hungerTime: typeof data.hungerTime === 'number' ? data.hungerTime : 0,
-            timeAlive: typeof data.timeAlive === 'number' ? data.timeAlive : 0,
-            isAlive: data.isAlive ?? true,
-            foodEaten: typeof data.foodEaten === 'number' ? data.foodEaten : 0,
-            foodForBreeding: typeof data.foodForBreeding === 'number' ? data.foodForBreeding : 0,
-            totalFoodEaten: typeof data.totalFoodEaten === 'number' ? data.totalFoodEaten : (typeof data.foodEaten === 'number' ? data.foodEaten : 0),
-            visibleFood: data.visibleFood || []
+    /**
+     * The single entry point for restoring a saved project (vault or file):
+     * builds the template organism EvolutionService.setTemplateAndReset needs,
+     * from the lineage's best-fitness champion, plus the full champion pool
+     * to reseed every other family.
+     */
+    public static buildTemplateFromLineage(record: LineageRecord): { template: Organism; champions: ChampionRecord[] } {
+        if (!record.champions || record.champions.length === 0) {
+            throw new Error(`Lineage "${record.projectName}" has no stored champions to restore from.`);
+        }
+        const best = [...record.champions].sort((a, b) => b.fitness - a.fitness)[0];
+        const template = Serializer.buildOrganism(record, best);
+        template.neuralGenome.meta = {
+            lineageId: record.lineageId,
+            projectName: record.projectName,
+            lineageGeneration: record.generation,
+            originDate: new Date().toISOString()
         };
-
-        orgBase.headNode = nodes.find(n => n.isHead);
-        
-        return orgBase;
+        return { template, champions: record.champions };
     }
 }

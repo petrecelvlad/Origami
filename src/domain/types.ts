@@ -251,6 +251,26 @@ export interface Blueprint {
     type: ShapeType;
 }
 
+// --- PERSISTENCE TYPES (Charter invariants 1-2) ---
+// A stored champion is a brain plus identity — never a body.
+export interface ChampionRecord {
+    family: FamilyType;
+    generation: number;
+    fitness: number;
+    genome: NeuralGenome; // deep copy; meta carries lineage identity
+}
+
+// The body shell is stored ONCE per lineage, as editor blueprint DNA.
+export interface LineageRecord {
+    lineageId: string;
+    projectName: string;
+    generation: number;
+    shape: ShapeType;
+    blueprint: BlueprintCell[];
+    champions: ChampionRecord[];
+    updatedAt: number;
+}
+
 // --- TYPE AUGMENTATION FOR R3F ---
 // We explicitly augment global JSX to cover all React/TS configurations.
 
