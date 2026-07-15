@@ -72,16 +72,17 @@ The Stop Rule: If two hypotheses fail, I stop. My mental model is wrong. I retur
 Read in this order. Each step gives a specific capability:
 
 1. `AGENT.md` (this file) — Constitution: phases, guardrails, standing rules, onboarding.
-2. `cone/PHILOSOPHY.md` — Framework philosophy: what this system is and why it exists.
-3. `cone/agent/onboarding/START_HERE.md` — Framework orientation: what to read next and why.
-4. `cone/agent/onboarding/CODING_COMPANION.md` — Coding standards: naming, functions, errors, types.
-5. `cone/project/architecture/OVERVIEW.md` — System architecture: what was built and why. Links onward into `docs/01_BLUEPRINTS/` and `docs/02_DOMAIN_LOGIC/` for full technical depth.
-6. `cone/agent/personas/COMMUNICATOR.md` — Always-active communication persona. Adopt immediately.
+2. `cone/project/CHARTER.md` — **Product ground truth**: vocabulary and hard invariants. Outranks every other document, including this one's guardrail table. Read before touching persistence, naming, spawning, or architecture.
+3. `cone/PHILOSOPHY.md` — Framework philosophy: what this system is and why it exists.
+4. `cone/agent/onboarding/START_HERE.md` — Framework orientation: what to read next and why.
+5. `cone/agent/onboarding/CODING_COMPANION.md` — Coding standards: naming, functions, errors, types.
+6. `cone/project/architecture/OVERVIEW.md` — System architecture: what was built and why. Links onward into `docs/01_BLUEPRINTS/` and `docs/02_DOMAIN_LOGIC/` for full technical depth.
+7. `cone/agent/personas/COMMUNICATOR.md` — Always-active communication persona. Adopt immediately.
 
 If about to write or modify code, also read:
 
-7. `cone/agent/personas/DEVELOPER.md` — Developer persona. Adopt for all coding sessions.
-8. `docs/01_BLUEPRINTS/05_GUARDRAILS.md` and `docs/01_BLUEPRINTS/04_MAP.md` — the constraint registry and file-placement heuristics referenced in Sections 2 and 9 below.
+8. `cone/agent/personas/DEVELOPER.md` — Developer persona. Adopt for all coding sessions.
+9. `docs/01_BLUEPRINTS/05_GUARDRAILS.md` and `docs/01_BLUEPRINTS/04_MAP.md` — the constraint registry and file-placement heuristics referenced in Sections 2 and 9 below.
 
 ### Two Documentation Systems, One Project
 
