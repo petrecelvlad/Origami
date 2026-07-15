@@ -65,10 +65,6 @@ export const GlobalCreatureView: React.FC<GlobalCreatureViewProps> = ({
     let muscleInstanceCount = 0;
     let foundLeaderHead = false;
 
-    // Build map for muscle resolution globally
-    // We can do an inline dictionary or just map internally per organism
-    const nodeIndexMap = new Map<string, number>();
-
     for (let orgIdx = 0; orgIdx < population.length; orgIdx++) {
         const organism = population[orgIdx];
         if (!organism.isAlive) continue;
@@ -76,10 +72,15 @@ export const GlobalCreatureView: React.FC<GlobalCreatureViewProps> = ({
         const isLeader = leaderRef.current?.id === organism.id;
         if (showBestOnly && !isLeader) continue;
 
-        // Build local index map to resolve muscle A/B IDs to actual nodes quickly
-        nodeIndexMap.clear();
-        for (let i = 0; i < organism.nodes.length; i++) {
-            nodeIndexMap.set(organism.nodes[i].id, i);
+        // Populate the muscles' node-ref cache once per organism (same lazy
+        // cache BioPhysicsEngine builds) instead of an ID map every frame.
+        if (organism.muscles.length > 0 && !organism.muscles[0].nodeRefA) {
+            const nodeById = new Map<string, Node>();
+            for (const n of organism.nodes) nodeById.set(n.id, n);
+            for (const m of organism.muscles) {
+                m.nodeRefA = nodeById.get(m.nodeA);
+                m.nodeRefB = nodeById.get(m.nodeB);
+            }
         }
 
         const orgBaseNodeIdx = nodeInstanceCount;
@@ -132,13 +133,10 @@ export const GlobalCreatureView: React.FC<GlobalCreatureViewProps> = ({
 
             if (globalIdx >= MAX_MUSCLES) break; // Safety bounding
 
-            const localIdxA = nodeIndexMap.get(m.nodeA);
-            const localIdxB = nodeIndexMap.get(m.nodeB);
+            const nA = m.nodeRefA;
+            const nB = m.nodeRefB;
 
-            if (localIdxA !== undefined && localIdxB !== undefined) {
-                const nA = organism.nodes[localIdxA];
-                const nB = organism.nodes[localIdxB];
-
+            if (nA && nB) {
                 const validA = isFinite(nA.pos.x);
                 const validB = isFinite(nB.pos.x);
 
