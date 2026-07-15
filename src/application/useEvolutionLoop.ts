@@ -48,6 +48,7 @@ export function useEvolutionLoop() {
         avgFitness: 0,
         energy: 100,
         maxEnergy: 100,
+        trackedFamily: null,
         foodEaten: 0,
         totalFoodEaten: 0,
         aliveCount: serviceRef.current!.population.length
@@ -114,6 +115,7 @@ export function useEvolutionLoop() {
             engine.statsRef.current.distance = trackedLeader.distanceTraveled || 0;
             engine.statsRef.current.energy = trackedLeader.energy;
             engine.statsRef.current.maxEnergy = trackedLeader.maxEnergy;
+            engine.statsRef.current.trackedFamily = trackedLeader.family || null;
             
             if (trackedLeader.fitnessBreakdown) {
                 engine.statsRef.current.fitnessBreakdown = { ...trackedLeader.fitnessBreakdown };

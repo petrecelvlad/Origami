@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Organism, ShapeType } from '../domain/types';
+import { Organism, ShapeType, FamilyType } from '../domain/types';
 import { EvolutionService } from './EvolutionService';
 
 /**
@@ -30,9 +30,10 @@ export function useSimulationEngine(serviceRef: React.MutableRefObject<Evolution
         foodEaten: 0, 
         totalFoodEaten: 0,
         distance: 0, 
-        energy: 0, 
-        maxEnergy: 100, 
-        aliveCount: 0, 
+        energy: 0,
+        maxEnergy: 100,
+        trackedFamily: null as FamilyType | null,
+        aliveCount: 0,
         totalCount: 0, 
         globalAge: 0, 
         projectName: '',

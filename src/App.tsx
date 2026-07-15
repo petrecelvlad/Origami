@@ -275,9 +275,10 @@ function App() {
       {/* --- HUD OVERLAYS --- */}
       <div className="pointer-events-none absolute inset-y-0 left-1/2 w-full min-w-[1024px] -translate-x-1/2">
         <div className="pointer-events-auto">
-          <EnergyBar 
+          <EnergyBar
               status={status}
               statsRef={statsRef}
+              trackedLeaderId={trackedLeaderId}
           />
         </div>
 
