@@ -72,11 +72,13 @@ export class BrainController {
   private deferredActivation = true;
   
   public reset(organism: Organism) {
+      this.organism = organism;
       this.internalTime = 0;
       this.decisionTimer = 0;
+      this.deferredActivation = true;
       this.learning.initialize(organism.energy);
       this.sensory.reset();
-      
+
       // If anatomy changed, we MUST rebuild the nervous system
       const anatomyChanged = 
           !this.isInitialized || 
@@ -100,13 +102,21 @@ export class BrainController {
           this.muscleRestDistances = new Float32Array(organism.muscles.length);
           this.initializeNervousSystem();
       } else {
-          this.neuralNodesList.forEach(nn => nn.reset());
+          const vM = organism.neuralGenome.vestibularMultiplier ?? 1.0;
+          const hM = organism.neuralGenome.heartbeatMultiplier ?? 1.0;
+          this.neuralNodesMap.clear();
+          for (let i = 0; i < organism.nodes.length; i++) {
+              const nn = this.neuralNodesList[i];
+              nn.rebind(organism.nodes[i], vM, hM);
+              nn.reset();
+              this.neuralNodesMap.set(organism.nodes[i].id, nn);
+          }
           if (this.cpg) {
               this.cpg.reset();
           }
           this.syncMuscleDistances(organism);
       }
-      
+
       if (organism.neuralGenome && organism.neuralGenome.synapseWeights) {
           if (this.synapseWeightsCache.length !== organism.neuralGenome.synapseWeights.length) {
               this.synapseWeightsCache = new Float32Array(organism.neuralGenome.synapseWeights);
@@ -117,9 +127,6 @@ export class BrainController {
           }
           this.cpg.initialize(organism.neuralGenome.reservoirWeights);
       }
-      
-      // Make sure organism reference is up to date safely
-      this.organism = organism;
   }
 
   private syncMuscleDistances(organism: Organism) {

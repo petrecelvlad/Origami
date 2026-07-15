@@ -35,6 +35,15 @@ export class NeuralNode {
     this.output = 0;
   }
 
+  // Pooled brains are reset onto a NEW body whose Node objects differ from the
+  // ones captured at construction; without rebinding, senses read the old corpse.
+  public rebind(node: Node, vestibularMultiplier: number, heartbeatMultiplier: number): void {
+    this.id = node.id;
+    this.physicalNode = node;
+    this.vestibularMultiplier = vestibularMultiplier;
+    this.heartbeatMultiplier = heartbeatMultiplier;
+  }
+
   // 1. Sense: Gather data from the physical world
   /**
    * @logic_seal
