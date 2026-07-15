@@ -334,8 +334,12 @@ export class BioPhysicsEngine {
         const memoryCorrection = baseDiff * currentMemoryStrength;
         let totalCorrection = (activeCorrection + memoryCorrection) * this.RELAXATION_FACTOR;
 
-        if (totalCorrection > this.MAX_CORRECTION) totalCorrection = this.MAX_CORRECTION;
-        else if (totalCorrection < -this.MAX_CORRECTION) totalCorrection = -this.MAX_CORRECTION;
+        // Never correct past the geometric violation in one iteration: the
+        // strain-boosted gain above can exceed 2x, which diverges (Session 05).
+        const violationBound = Math.max(Math.abs(activeDiff), Math.abs(baseDiff));
+        const bound = Math.min(this.MAX_CORRECTION, violationBound);
+        if (totalCorrection > bound) totalCorrection = bound;
+        else if (totalCorrection < -bound) totalCorrection = -bound;
 
         const rvx = (n2.pos.x - n2.oldPos.x) - (n1.pos.x - n1.oldPos.x);
         const rvy = (n2.pos.y - n2.oldPos.y) - (n1.pos.y - n1.oldPos.y);
@@ -346,7 +350,9 @@ export class BioPhysicsEngine {
         const nz = dz / dist;
         
         const vRelProj = rvx * nx + rvy * ny + rvz * nz;
-        const dynamicDamping = this.BASE_MUSCLE_DAMPING + (Math.abs(vRelProj) * this.ADAPTIVE_DAMPING_FACTOR);
+        // Capped: one muscle may cancel at most half the relative velocity per
+        // iteration; uncapped this term is quadratic in vRelProj and diverges.
+        const dynamicDamping = Math.min(0.5, this.BASE_MUSCLE_DAMPING + (Math.abs(vRelProj) * this.ADAPTIVE_DAMPING_FACTOR));
         
         totalCorrection += vRelProj * dynamicDamping;
 
