@@ -102,12 +102,12 @@ Non-negotiable constraints:
 
 | ID | Name | Scope | Description |
 |---|---|---|---|
-| C-001 | WebGPU Priority | Infrastructure | **SUSPENDED for release** (2026-07-13) — GPU path disabled due to unresolved CPU/GPU physics divergence; CPU (`BioPhysicsEngine`) is the sole path. See [docs/05_ARCHIVE/05_ISSUES.md](docs/05_ARCHIVE/05_ISSUES.md) Issue #6. |
+| C-001 | ~~WebGPU Priority~~ | Infrastructure | **RETIRED** (2026-07-15) — the GPU path was deleted by owner decision (it never ran successfully on any machine; see [docs/05_ARCHIVE/05_ISSUES.md](docs/05_ARCHIVE/05_ISSUES.md) Issue #6). `BioPhysicsEngine` (CPU) is the only physics engine. Per the Charter, never reintroduce a second engine path. |
 | C-002 | Stateless Domain | Domain | Domain logic should not hold persistent state; use input/output patterns. |
 | C-003 | Immutable State | Application | Simulation state updates must be immutable to support undo/redo and persistence. |
 | C-004 | Energy Conservation | Domain | Total system energy must be tracked and conserved (Metabolism). |
 | C-005 | Type Safety | Global | No `any` types. All data structures must be typed. |
-| C-006 | Zero-Dependency Domain | Domain | Core logic must not depend on UI frameworks (React) or Infrastructure (WebGPU). |
+| C-006 | Zero-Dependency Domain | Domain | Core logic must not depend on UI frameworks (React) or Infrastructure (storage, rendering, platform APIs). |
 
 Additional directives:
 - **Modular Evolution:** Services must be decoupled (Metabolism, Ecosystem, Lineage) to prevent the "EvolutionService God Object" anti-pattern.
@@ -117,12 +117,11 @@ Full constraint registry lives at [docs/01_BLUEPRINTS/05_GUARDRAILS.md](docs/01_
 
 ### The Pillars
 
-The four core components every agent should recognize by name:
+The three core components every agent should recognize by name:
 
-1. **BioPhysicsEngine (The Heart):** Manages Verlet integration and constraint resolution.
+1. **BioPhysicsEngine (The Heart):** Manages Verlet integration and constraint resolution. The only physics engine.
 2. **GeneticOperator (The Architect):** Handles mutation, crossover, and family synthesis.
 3. **BrainController (The Mind):** Orchestrates NeuralNodes, SensoryModules, and LearningEngines.
-4. **WebGPUContext (The Engine):** Interfaces with the GPU for high-performance computation.
 
 ---
 
@@ -131,8 +130,7 @@ The four core components every agent should recognize by name:
 - **Language:** TypeScript 5.x (Strict Mode, no `any`)
 - **Framework:** React 19 (`@react-three/fiber` for the Three.js integration)
 - **Build System:** Vite 7.x
-- **Physics:** Custom Verlet Engine + custom vector math (Domain layer)
-- **Acceleration:** WebGPU (WGSL shaders) for compute-heavy physics/neural updates
+- **Physics:** Custom Verlet Engine + custom vector math (Domain layer), CPU-only
 - **Rendering:** Three.js (`@react-three/fiber`, `@react-three/drei`)
 - **Animations:** Motion
 - **Icons:** Lucide-React

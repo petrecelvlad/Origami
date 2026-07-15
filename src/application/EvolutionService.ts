@@ -19,8 +19,6 @@ import { LatticeFactory } from '../domain/lattice/LatticeStrategy';
 import { AtomicNormalizer } from '../domain/AtomicNormalizer';
 import { FamilyRegistry } from '../domain/genetics/FamilyRegistry';
 
-// GPU MIGRATION
-import { GpuBridge } from './GpuBridge';
 import { MetabolicService, MetabolicConfig } from './MetabolicService';
 import { EcosystemService, EcosystemConfig } from './EcosystemService';
 import { LineageManager } from './LineageManager';
@@ -34,13 +32,11 @@ export class EvolutionService {
   public simulationTime = 0;
   
   // Services
-  public gpu: GpuBridge;
   private metabolicService: MetabolicService;
   private ecosystemService: EcosystemService;
   private lineage: LineageManager;
 
   public get currentGeneration(): number { return this.lineage.generation; }
-  public get useGPU(): boolean { return this.gpu.isActive; }
 
   private engine: BioPhysicsEngine;
   private geneticOperator: GeneticOperator;
@@ -102,32 +98,11 @@ export class EvolutionService {
     this.fitnessEvaluator = new StandardFitnessEvaluator();
     
     // Services
-    this.gpu = new GpuBridge();
     this.metabolicService = new MetabolicService();
     this.ecosystemService = new EcosystemService();
     this.lineage = new LineageManager();
-
-    // GPU path disabled for release: the WebGPU physics port diverges from
-    // BioPhysicsEngine (slow cumulative collapse under load) and the fix was not
-    // localized — see docs/05_ARCHIVE/05_ISSUES.md Issue #6 and
-    // cone/agent/sessions/07_July/Week_1/2026-07-05/02_LAPTOP_GPU_PHYSICS_BUG.md.
-    // Leaving gpu.isActive at its default `false` routes every device through the
-    // CPU path unconditionally (see EvolutionService.step()). Do not re-enable by
-    // calling initGPU() until that divergence is numerically resolved via the
-    // CPU/GPU parity harness.
-    // this.initGPU();
   }
 
-  private async initGPU() {
-      const success = await this.gpu.initialize();
-      if (success) {
-          if (this.population.length > 0) {
-              this.gpu.syncPopulation(this.population, 0.016);
-          }
-          console.log("Hardware Acceleration ENGAGED! GPU Brain & Physics ready.");
-      }
-  }
-  
   // --- PHYSICS CONFIGURATION ---
   public setGlobalStiffness(val: number) { this.engine.setConfig({ globalStiffness: val }); }
   public setGlobalContractility(val: number) { this.engine.setConfig({ globalContractility: val }); }
@@ -180,11 +155,6 @@ export class EvolutionService {
               n.mass = base * this.densityMultiplier;
           });
       });
-
-      // SYNC TO GPU IMMEDIATELY
-      if (this.gpu && this.gpu.isActive) {
-          this.gpu.syncPopulation(this.population, 0.016);
-      }
   }
 
   private getEcosystemConfig(): EcosystemConfig {
@@ -342,10 +312,6 @@ export class EvolutionService {
           }
       }
 
-      if (this.useGPU) {
-          this.gpu.syncPopulation(this.population, 0.016);
-      }
-
       this.notifyNewGeneration(this.population);
   }
 
@@ -488,23 +454,10 @@ export class EvolutionService {
 
   public async step(dt: number): Promise<void> {
     this.simulationTime += dt;
-    
-    if (this.useGPU) {
-        await this.gpu.executeStep(
-            this.population, 
-            dt, 
-            (this.engine as any).config.gravity,
-            (this.engine as any).config.globalStiffness,
-            this.globalVisionRadius,
-            (this.engine as any).config
-        );
-        await this.updateMetabolism(dt);
-        this.postPhysicsLogic();
-    } else {
-        this.updatePhysics(dt, false);
-        await this.updateMetabolism(dt);
-        this.postPhysicsLogic();
-    }
+
+    this.updatePhysics(dt, false);
+    await this.updateMetabolism(dt);
+    this.postPhysicsLogic();
   }
 
   private postPhysicsLogic() {
@@ -526,30 +479,12 @@ export class EvolutionService {
 
   private processBreedingQueue() {
       if (this.breedingQueue.length > 0) {
-          if (this.useGPU) {
-              let currentNodes = this.population.reduce((sum, o) => sum + o.nodes.length, 0);
-              let currentMuscles = this.population.reduce((sum, o) => sum + o.muscles.length, 0);
-              
-              // We must strictly enforce WebGPU buffer limits to prevent DEVICE_LOSS crashes
-              for (let i = 0; i < this.breedingQueue.length; i++) {
-                  const child = this.breedingQueue[i];
-                  if (this.population.length >= 1950) break;
-                  if (currentNodes + child.nodes.length >= 19500) break;
-                  if (currentMuscles + child.muscles.length >= 39500) break;
-                  
-                  this.population.push(child);
-                  currentNodes += child.nodes.length;
-                  currentMuscles += child.muscles.length;
-              }
-              this.gpu.syncPopulation(this.population, 0.016);
-          } else {
-              // Same 2x ratio as the dead-pool cap: without a bound, sustained
-              // breeding grows the population until the frame loop collapses.
-              const cap = this.populationSize * 2;
-              for (const child of this.breedingQueue) {
-                  if (this.population.length >= cap) break;
-                  this.population.push(child);
-              }
+          // Same 2x ratio as the dead-pool cap: without a bound, sustained
+          // breeding grows the population until the frame loop collapses.
+          const cap = this.populationSize * 2;
+          for (const child of this.breedingQueue) {
+              if (this.population.length >= cap) break;
+              this.population.push(child);
           }
           this.breedingQueue = [];
       }

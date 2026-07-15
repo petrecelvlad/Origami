@@ -119,7 +119,6 @@ export const GlobalCreatureView: React.FC<GlobalCreatureViewProps> = ({
                 } else {
                     const act = node.activation || 0;
                     _color.copy(COL_WHITE).lerp(COL_YELLOW, Math.min(1, act)); // clamp
-                    // In WebGPU mode, we just draw standard for now
                     nodesMeshRef.current.setColorAt(globalIdx, _color);
                 }
             }

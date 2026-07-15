@@ -4,7 +4,7 @@
  *   "role": "UTILITY",
  *   "dependencies": ["@domain/types"],
  *   "constraints": ["C-005", "C-006"],
- *   "agent_instructions": "Core mathematical kernels. Do not swap to heavy math libraries without verifying C-001 (WebGPU Priority)."
+ *   "agent_instructions": "Core mathematical kernels. Keep dependency-free; these run in the per-frame hot path."
  * }
  */
 import { Vec3 } from './types';
