@@ -163,6 +163,7 @@ export interface Organism {
   lastSampledPos?: Vec3;
   odometer: number;        // NEW: Filtered cumulative distance
   visitedTiles?: Record<string, boolean>; // NEW: Territory tracking (1m x 1m grid)
+  visitedTileCount?: number; // Maintained counter — avoids Object.keys() per frame
   odometerTimer?: number;
 
   // NEW: Metabolism & Survival

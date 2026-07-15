@@ -908,6 +908,7 @@ export class EvolutionService {
           clone.fitness = 0;
           clone.odometer = 0;
           clone.visitedTiles = {};
+          clone.visitedTileCount = 0;
           clone.generation = template.generation || 1; 
           clone.brain = pooled.brain;
           clone.energy = this.startEnergy;

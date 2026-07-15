@@ -53,11 +53,15 @@ export class StandardFitnessEvaluator implements IFitnessEvaluator {
             const gridX = Math.floor(head.pos.x);
             const gridZ = Math.floor(head.pos.z);
             const tileKey = `${gridX},${gridZ}`;
-            
+
+            if (organism.visitedTileCount === undefined) {
+                organism.visitedTileCount = Object.keys(organism.visitedTiles).length;
+            }
             if (!organism.visitedTiles[tileKey]) {
                 organism.visitedTiles[tileKey] = true;
+                organism.visitedTileCount++;
             }
-            const visitedCount = Object.keys(organism.visitedTiles).length;
+            const visitedCount = organism.visitedTileCount;
 
             // --- FINAL CALCULATION ---
             const pathScore = organism.odometer * DEFAULT_EVOLUTION_CONFIG.odometryScale;
@@ -68,12 +72,20 @@ export class StandardFitnessEvaluator implements IFitnessEvaluator {
 
             organism.fitness = pathScore + explorationScore + timeScore + foodScore;
 
-            organism.fitnessBreakdown = {
-                distanceScore: pathScore,
-                explorationScore: explorationScore,
-                survivalScore: timeScore,
-                foodScore: foodScore
-            };
+            const breakdown = organism.fitnessBreakdown;
+            if (breakdown) {
+                breakdown.distanceScore = pathScore;
+                breakdown.explorationScore = explorationScore;
+                breakdown.survivalScore = timeScore;
+                breakdown.foodScore = foodScore;
+            } else {
+                organism.fitnessBreakdown = {
+                    distanceScore: pathScore,
+                    explorationScore: explorationScore,
+                    survivalScore: timeScore,
+                    foodScore: foodScore
+                };
+            }
         }
         
         if (!isFinite(organism.fitness)) organism.fitness = 0;
