@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useEvolutionLoop } from './application/useEvolutionLoop';
 import { BlueprintService } from './domain/BlueprintService';
-import { ShapeType, Organism, CellType } from './domain/types';
+import { ShapeType, Organism, CellType, FamilyType } from './domain/types';
 import { AtomicNormalizer } from './domain/AtomicNormalizer';
+import { isAdminBuild } from './config';
 
 // UI Components
 import { UnifiedStage } from './infrastructure/visuals/UnifiedStage';
@@ -66,8 +67,17 @@ function App() {
       const restoreMasterOnBoot = async () => {
           try {
               const { localVault } = await import('./infrastructure/local/LocalVault');
-              const allChampions = await localVault.getAllLocalChampions();
-              
+              let allChampions: { family: FamilyType; generation: number; snapshot: any }[] = await localVault.getAllLocalChampions();
+
+              if (allChampions.length === 0) {
+                  try {
+                      const { championCloudVault } = await import('./infrastructure/cloud/ChampionCloudVault');
+                      allChampions = await championCloudVault.getAllCloudChampions();
+                  } catch (cloudErr) {
+                      console.error("Cloud boot restoration failed", cloudErr);
+                  }
+              }
+
               if (allChampions.length > 0 && generation === 1) {
                   // Find the best to be the primary template
                   const bestEntry = allChampions.sort((a,b) => b.generation - a.generation)[0];
@@ -324,15 +334,17 @@ function App() {
           />
         </div>
 
-        <div className="pointer-events-auto">
-          <SettingsDrawer 
-              showBestOnly={showBestOnly}
-              onToggleBestOnly={() => setShowBestOnly(!showBestOnly)}
-              onSave={saveBatchChampions}
-              onLoad={handleLoadBatch}
-              onVaultOpen={() => setIsVaultOpen(true)}
-          />
-        </div>
+        {isAdminBuild && (
+          <div className="pointer-events-auto">
+            <SettingsDrawer
+                showBestOnly={showBestOnly}
+                onToggleBestOnly={() => setShowBestOnly(!showBestOnly)}
+                onSave={saveBatchChampions}
+                onLoad={handleLoadBatch}
+                onVaultOpen={() => setIsVaultOpen(true)}
+            />
+          </div>
+        )}
 
         {/* FPS STATS (Bottom Left) */}
         <div className="absolute bottom-6 left-6 pointer-events-auto">

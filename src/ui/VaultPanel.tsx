@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-    Archive, X, Trash2, Download, Save, 
-    Zap, Database, AlertTriangle, History
+import {
+    Archive, X, Trash2, Download, Save,
+    Zap, Database, AlertTriangle, History, CloudUpload
 } from 'lucide-react';
 import { localVault } from '../infrastructure/local/LocalVault';
+import { championCloudVault } from '../infrastructure/cloud/ChampionCloudVault';
 import { toast } from 'sonner';
 import { Organism, FamilyType } from '../domain/types';
 import { FAMILY_COLORS } from '../domain/genetics/GeneticOperator';
+import { isAdminBuild } from '../config';
 
 interface VaultPanelProps {
     isOpen: boolean;
@@ -19,6 +21,7 @@ interface VaultPanelProps {
 export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeChampions, onLoadBulk }) => {
     const [localVaultData, setLocalVaultData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [cloudLoading, setCloudLoading] = useState(false);
     const [showPurgeAllConfirm, setShowPurgeAllConfirm] = useState(false);
 
     const fetchLocalData = async () => {
@@ -130,6 +133,32 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeC
                                         <Save className="w-4 h-4" />
                                         {loading ? 'STORING...' : 'PUSH TO LOCAL DRIVE'}
                                     </button>
+
+                                    {isAdminBuild && (
+                                        <button
+                                            onClick={async () => {
+                                                setCloudLoading(true);
+                                                try {
+                                                    const { pushed, skipped } = await championCloudVault.pushAllChampions(activeChampions);
+                                                    if (pushed.length > 0) {
+                                                        toast.success(`Pushed to Cloud: ${pushed.join(', ')}`);
+                                                    }
+                                                    if (skipped.length > 0) {
+                                                        toast.info(`Skipped (no token / cancelled): ${skipped.join(', ')}`);
+                                                    }
+                                                } catch (err) {
+                                                    toast.error(err instanceof Error ? err.message : 'Cloud push failed');
+                                                } finally {
+                                                    setCloudLoading(false);
+                                                }
+                                            }}
+                                            disabled={cloudLoading}
+                                            className="w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 bg-sky-600 hover:bg-sky-500 shadow-sky-900/20 shadow-xl text-white"
+                                        >
+                                            <CloudUpload className="w-4 h-4" />
+                                            {cloudLoading ? 'PUSHING...' : 'PUSH TO CLOUD'}
+                                        </button>
+                                    )}
                                 </motion.div>
                             )}
 

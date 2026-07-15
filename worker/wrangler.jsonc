@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "origami-champions-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-14",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "origami-champions",
+      "database_id": "bc91b0ca-45f8-455b-8321-2bab5d94cbd4"
+    }
+  ]
+}

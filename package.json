@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "lint:okf": "node scripts/lint-okf.cjs",
+    "push-champions": "node scripts/push-champions.cjs",
     "visualize": "python -m reference_agent visualize --bundle cone --out cone_viz.html --name \"project-origami\""
   },
   "dependencies": {
