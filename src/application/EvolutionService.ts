@@ -537,7 +537,13 @@ export class EvolutionService {
               }
               this.gpu.syncPopulation(this.population, 0.016);
           } else {
-              this.population.push(...this.breedingQueue);
+              // Same 2x ratio as the dead-pool cap: without a bound, sustained
+              // breeding grows the population until the frame loop collapses.
+              const cap = this.populationSize * 2;
+              for (const child of this.breedingQueue) {
+                  if (this.population.length >= cap) break;
+                  this.population.push(child);
+              }
           }
           this.breedingQueue = [];
       }
