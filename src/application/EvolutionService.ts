@@ -355,7 +355,12 @@ export class EvolutionService {
       const numNodes = this.template.nodes.length;
 
       const createRoot = (f: FamilyType) => this.geneticOperator.createRandomGenome(numMuscles, numNodes, 20, f);
-      
+
+      // Random roots carry no meta; clone/crossover would wipe the lineage
+      // identity spawnGeneration just assigned, and LineageGuard would then
+      // fabricate a lin_recovery_* identity for every champion from gen 1 on.
+      const meta = child.neuralGenome.meta;
+
       switch(fam) {
           case FamilyType.BRUTE:
           case FamilyType.MONOLITH:
@@ -386,6 +391,7 @@ export class EvolutionService {
       }
       // Apply initial mutation
       this.geneticOperator.mutateGenome(child.neuralGenome, 0.1);
+      child.neuralGenome.meta = meta;
   }
 
   private generateFoodTrack(organism: Organism): void {
