@@ -64,7 +64,7 @@ export class StandardFitnessEvaluator implements IFitnessEvaluator {
             const explorationScore = visitedCount * DEFAULT_EVOLUTION_CONFIG.territoryScale;
             const timeScore = (organism.timeAlive / 1000) * DEFAULT_EVOLUTION_CONFIG.timeScale;
             
-            const foodScore = (organism.foodEaten * (organism.foodEaten + 1) / 2) * DEFAULT_EVOLUTION_CONFIG.foodScoreIncrement || 3;
+            const foodScore = (organism.foodEaten * (organism.foodEaten + 1) / 2) * (DEFAULT_EVOLUTION_CONFIG.foodScoreIncrement || 3);
 
             organism.fitness = pathScore + explorationScore + timeScore + foodScore;
 
