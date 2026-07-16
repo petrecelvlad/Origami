@@ -423,54 +423,91 @@ export class BioPhysicsEngine {
       }
   }
 
-  // Muscles constrain LENGTH only, never angle/handedness, so a FOOT node
-  // can occasionally fold into a mirror-image configuration through its own
-  // attachment points that satisfies every muscle's rest length exactly -
-  // once there, shape memory has no signal to undo it, since length alone
-  // can't tell the correct pose from the folded one. foldAnchorIds/foldRefSign
-  // (set once at generation time in BlueprintService) record which side of
-  // its 3 real anchors the foot started on; if the current side ever flips,
-  // reflect the foot straight back across that plane. This only fires on an
+  // Muscles constrain LENGTH only, never angle/handedness, so a node can
+  // occasionally fold into a mirror-image (>=3 anchors) or wildly rotated
+  // (1-2 anchors) configuration through its own attachment points that
+  // satisfies every muscle's rest length exactly - once there, shape memory
+  // has no signal to undo it, since length alone can't tell the correct pose
+  // from the folded one. foldAnchorIds (set once at generation time in
+  // BlueprintService) records the node's real attachments; foldRefSign (>=3
+  // anchors) or foldRestOffsetDir (1-2 anchors) records its rest-pose
+  // orientation relative to them. If the current orientation ever crosses
+  // that reference, snap the node straight back. This only fires on an
   // actual fold, never on ordinary gait articulation, since a stride moves a
-  // foot without crossing its own anchor plane.
+  // limb without crossing its own anchor plane / swinging past ~104 degrees
+  // from rest.
   private correctFoldedLimbs(organism: Organism): void {
       const nodes = organism.nodes;
       let nodeById: Map<string, Node> | null = null;
+      // Below this dot product (~104 degrees off rest), a 1-2 anchor node is
+      // treated as folded rather than merely mid-stride.
+      const ANGLE_FOLD_THRESHOLD = -0.25;
 
       for (let i = 0; i < nodes.length; i++) {
           const node = nodes[i];
-          if (!node.foldAnchorIds || node.foldRefSign === undefined) continue;
-
+          if (!node.foldAnchorIds || node.foldAnchorIds.length === 0) continue;
           if (!nodeById) nodeById = new Map(nodes.map(n => [n.id, n]));
-          const a = nodeById.get(node.foldAnchorIds[0]);
-          const b = nodeById.get(node.foldAnchorIds[1]);
-          const c = nodeById.get(node.foldAnchorIds[2]);
-          if (!a || !b || !c) continue;
 
-          const abx = b.pos.x - a.pos.x, aby = b.pos.y - a.pos.y, abz = b.pos.z - a.pos.z;
-          const acx = c.pos.x - a.pos.x, acy = c.pos.y - a.pos.y, acz = c.pos.z - a.pos.z;
+          if (node.foldRefSign !== undefined) {
+              const a = nodeById.get(node.foldAnchorIds[0]);
+              const b = nodeById.get(node.foldAnchorIds[1]);
+              const c = nodeById.get(node.foldAnchorIds[2]);
+              if (!a || !b || !c) continue;
 
-          let nx = aby * acz - abz * acy;
-          let ny = abz * acx - abx * acz;
-          let nz = abx * acy - aby * acx;
-          const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
-          if (nLen < 1e-6) continue; // anchors momentarily collinear
-          nx /= nLen; ny /= nLen; nz /= nLen;
+              const abx = b.pos.x - a.pos.x, aby = b.pos.y - a.pos.y, abz = b.pos.z - a.pos.z;
+              const acx = c.pos.x - a.pos.x, acy = c.pos.y - a.pos.y, acz = c.pos.z - a.pos.z;
 
-          const tx = node.pos.x - a.pos.x, ty = node.pos.y - a.pos.y, tz = node.pos.z - a.pos.z;
-          const d = nx * tx + ny * ty + nz * tz;
-          const currentSign = Math.sign(d);
-          if (currentSign === 0 || currentSign === node.foldRefSign) continue;
+              let nx = aby * acz - abz * acy;
+              let ny = abz * acx - abx * acz;
+              let nz = abx * acy - aby * acx;
+              const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
+              if (nLen < 1e-6) continue; // anchors momentarily collinear
+              nx /= nLen; ny /= nLen; nz /= nLen;
 
-          // Reflect the node back across the anchor plane; zero its velocity
-          // component along the fold axis so it doesn't immediately re-cross.
-          const reflect = 2 * d;
-          node.pos.x -= reflect * nx;
-          node.pos.y -= reflect * ny;
-          node.pos.z -= reflect * nz;
-          node.oldPos.x = node.pos.x;
-          node.oldPos.y = node.pos.y;
-          node.oldPos.z = node.pos.z;
+              const tx = node.pos.x - a.pos.x, ty = node.pos.y - a.pos.y, tz = node.pos.z - a.pos.z;
+              const d = nx * tx + ny * ty + nz * tz;
+              const currentSign = Math.sign(d);
+              if (currentSign === 0 || currentSign === node.foldRefSign) continue;
+
+              // Reflect the node back across the anchor plane; zero its
+              // velocity so it doesn't immediately re-cross.
+              const reflect = 2 * d;
+              node.pos.x -= reflect * nx;
+              node.pos.y -= reflect * ny;
+              node.pos.z -= reflect * nz;
+              node.oldPos.x = node.pos.x;
+              node.oldPos.y = node.pos.y;
+              node.oldPos.z = node.pos.z;
+          } else if (node.foldRestOffsetDir) {
+              let cx = 0, cy = 0, cz = 0;
+              let anchorCount = 0;
+              for (const anchorId of node.foldAnchorIds) {
+                  const anchor = nodeById.get(anchorId);
+                  if (!anchor) continue;
+                  cx += anchor.pos.x; cy += anchor.pos.y; cz += anchor.pos.z;
+                  anchorCount++;
+              }
+              if (anchorCount === 0) continue;
+              cx /= anchorCount; cy /= anchorCount; cz /= anchorCount;
+
+              const ox = node.pos.x - cx, oy = node.pos.y - cy, oz = node.pos.z - cz;
+              const oLen = Math.sqrt(ox * ox + oy * oy + oz * oz);
+              if (oLen < 1e-6) continue; // sitting on its own anchor centroid
+
+              const dirX = ox / oLen, dirY = oy / oLen, dirZ = oz / oLen;
+              const rest = node.foldRestOffsetDir;
+              const dot = dirX * rest.x + dirY * rest.y + dirZ * rest.z;
+              if (dot >= ANGLE_FOLD_THRESHOLD) continue;
+
+              // Snap back to the expected direction, preserving current
+              // stretch distance from the anchor centroid.
+              node.pos.x = cx + rest.x * oLen;
+              node.pos.y = cy + rest.y * oLen;
+              node.pos.z = cz + rest.z * oLen;
+              node.oldPos.x = node.pos.x;
+              node.oldPos.y = node.pos.y;
+              node.oldPos.z = node.pos.z;
+          }
       }
   }
 

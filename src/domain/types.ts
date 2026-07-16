@@ -42,9 +42,12 @@ export interface Node {
 
   // TOPOLOGICAL FOLD DETECTION (distance-only muscles can't tell a limb's
   // correct pose from its mirror-image fold through the same anchors - see
-  // BioPhysicsEngine.correctFoldedLimbs). Set once at generation time.
-  foldAnchorIds?: [string, string, string];
+  // BioPhysicsEngine.correctFoldedLimbs). Set once at generation time, for
+  // any node with >=1 direct muscle neighbor. >=3 anchors define a plane
+  // (foldRefSign, exact); 1-2 anchors can't (foldRestOffsetDir, heuristic).
+  foldAnchorIds?: string[];
   foldRefSign?: number;
+  foldRestOffsetDir?: Vec3;
 
   // Neural State
   activation?: number; // 0.0 to 1.0 (Visualization Glow)

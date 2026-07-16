@@ -548,45 +548,85 @@ export class BlueprintService {
       });
 
       // Fold-detection anchors: muscles constrain LENGTH only, never angle,
-      // so a FOOT node can fold into a mirror-image configuration through
-      // its own attachment points while every muscle's rest length stays
-      // exactly satisfied (verified: 0% violation) - shape memory has no
-      // signal to tell correct from folded since both have identical
-      // lengths. Record 3 of the foot's real attachment points and which
-      // side of their plane the foot starts on, so the physics engine can
-      // detect (and undo) the fold directly - see
-      // BioPhysicsEngine.correctFoldedLimbs. A prior attempt to prevent
-      // this with extra passive "bend brace" muscles was reverted: any
-      // brace strong enough to resist the fold also resists a leg lifting
-      // mid-stride (the same displacement to a length-only constraint),
-      // which dropped 1000-frame gait survival from 15/30 to 0/30.
+      // so any node can fold into a mirror-image (or, with <3 anchors, any
+      // rotated) configuration through its own attachment points while every
+      // muscle's rest length stays exactly satisfied (verified: 0%
+      // violation) - shape memory has no signal to tell correct from folded
+      // since both have identical lengths. Sparse procedural/user-drawn
+      // shapes routinely give FOOT, BODY, or HEAD cells as few as 1-2 direct
+      // connections (verified: generateSmallCritter routinely produces
+      // degree-1/2 nodes of every type), not just the 3-connection spider
+      // foot this was first diagnosed on, so this applies to every cell
+      // type, not just FOOT. With >=3 anchors they define a plane - record
+      // which side the node starts on (exact: any crossing is unambiguously
+      // a fold). With 1-2 anchors there's no plane, only a rotational
+      // continuum - record the node's rest-relative direction from its
+      // anchor centroid instead, and treat a large swing away from it as a
+      // fold. See BioPhysicsEngine.correctFoldedLimbs. A prior attempt to
+      // prevent this with extra passive "bend brace" muscles was reverted:
+      // any brace strong enough to resist the fold also resists a leg
+      // lifting mid-stride (the same displacement to a length-only
+      // constraint), which dropped 1000-frame gait survival from 15/30 to
+      // 0/30 - detection-based correction avoids that since it only
+      // intervenes once a fold has actually happened.
       const directAdjacency = new Map<string, string[]>();
       for (const m of muscles) {
           (directAdjacency.get(m.nodeA) ?? directAdjacency.set(m.nodeA, []).get(m.nodeA)!).push(m.nodeB);
           (directAdjacency.get(m.nodeB) ?? directAdjacency.set(m.nodeB, []).get(m.nodeB)!).push(m.nodeA);
       }
       const nodeById = new Map(nodes.map(n => [n.id, n]));
-      activeCells.forEach(c => {
-          if (c.type !== CellType.FOOT) return;
-          const footId = coordToNodeId.get(`${c.x},${c.y},${c.z}`);
-          if (!footId) return;
 
-          const anchorIds = directAdjacency.get(footId) ?? [];
-          if (anchorIds.length < 3) return; // not enough anchors to define a plane
+      // Among a node's anchors, find 3 that aren't collinear/coplanar with
+      // the node itself - taking a fixed first-3 regularly fails for
+      // symmetric interior nodes (their first 3 same-layer neighbors often
+      // sit in the same plane as the node itself, giving sign=0) even when
+      // some other triple among its remaining anchors would work fine.
+      const findValidPlane = (nodeId: string, anchorIds: string[]) => {
+          const node = nodeById.get(nodeId)!;
+          for (let i = 0; i < anchorIds.length; i++) {
+              for (let j = i + 1; j < anchorIds.length; j++) {
+                  for (let k = j + 1; k < anchorIds.length; k++) {
+                      const a = nodeById.get(anchorIds[i])!;
+                      const b = nodeById.get(anchorIds[j])!;
+                      const c = nodeById.get(anchorIds[k])!;
+                      const ab = VectorOps.sub(b.pos, a.pos);
+                      const ac = VectorOps.sub(c.pos, a.pos);
+                      const normal = VectorOps.cross(ab, ac);
+                      if (VectorOps.length(normal) < 1e-6) continue; // collinear
 
-          const foot = nodeById.get(footId)!;
-          const [a, b, cN] = anchorIds.slice(0, 3).map(id => nodeById.get(id)!);
-          const ab = VectorOps.sub(b.pos, a.pos);
-          const ac = VectorOps.sub(cN.pos, a.pos);
-          const normal = VectorOps.cross(ab, ac);
-          if (VectorOps.length(normal) < 1e-6) return; // anchors collinear
+                      const toNode = VectorOps.sub(node.pos, a.pos);
+                      const sign = Math.sign(VectorOps.dot(normal, toNode));
+                      if (sign === 0) continue; // node coplanar with this triple
 
-          const toFoot = VectorOps.sub(foot.pos, a.pos);
-          const sign = Math.sign(VectorOps.dot(normal, toFoot));
-          if (sign === 0) return;
+                      return { anchorIds: [anchorIds[i], anchorIds[j], anchorIds[k]], sign };
+                  }
+              }
+          }
+          return null;
+      };
 
-          foot.foldAnchorIds = anchorIds.slice(0, 3) as [string, string, string];
-          foot.foldRefSign = sign;
+      nodes.forEach(node => {
+          const anchorIds = directAdjacency.get(node.id) ?? [];
+          if (anchorIds.length === 0) return;
+
+          const plane = anchorIds.length >= 3 ? findValidPlane(node.id, anchorIds) : null;
+          if (plane) {
+              node.foldAnchorIds = plane.anchorIds;
+              node.foldRefSign = plane.sign;
+              return;
+          }
+
+          // No valid plane (too few anchors, or all triples degenerate for
+          // this node's actual position) - fall back to the rotational
+          // heuristic using every anchor's centroid.
+          const anchors = anchorIds.map(id => nodeById.get(id)!);
+          const centroid = anchors.reduce((acc, n) => VectorOps.add(acc, n.pos), { x: 0, y: 0, z: 0 });
+          const centroidPos = VectorOps.mul(centroid, 1 / anchors.length);
+          const offset = VectorOps.sub(node.pos, centroidPos);
+          if (VectorOps.length(offset) < 1e-6) return; // node sits on its own anchor centroid
+
+          node.foldAnchorIds = anchorIds;
+          node.foldRestOffsetDir = VectorOps.normalize(offset);
       });
 
       // 4. Brain Grafting
