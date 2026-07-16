@@ -80,7 +80,7 @@ export class BioPhysicsEngine {
         this.integrate(organism, subDt, gY);
         this.applyRotationalDrag(organism);
 
-        const loops = this.ITERATIONS;
+        const loops = this.config.constraintIterations ?? this.ITERATIONS;
 
         for (let i = 0; i < loops; i++) {
             this.resolveMuscles(organism);
@@ -227,7 +227,7 @@ export class BioPhysicsEngine {
     const friction = this.config.friction;
     
     // Safety cap: Max distance a node can travel in one sub-step
-    const MAX_STEP = this.MAX_VELOCITY * dt; 
+    const MAX_STEP = (this.config.maxVelocity ?? this.MAX_VELOCITY) * dt;
     const MAX_STEP_SQ = MAX_STEP * MAX_STEP;
 
     for (let i = 0; i < nodes.length; i++) {
@@ -332,7 +332,7 @@ export class BioPhysicsEngine {
         
         const activeCorrection = activeDiff * stiffness;
         const memoryCorrection = baseDiff * currentMemoryStrength;
-        let totalCorrection = (activeCorrection + memoryCorrection) * this.RELAXATION_FACTOR;
+        let totalCorrection = (activeCorrection + memoryCorrection) * (this.config.relaxationFactor ?? this.RELAXATION_FACTOR);
 
         // Never correct past the geometric violation in one iteration: the
         // strain-boosted gain above can exceed 2x, which diverges (Session 05).
@@ -352,7 +352,7 @@ export class BioPhysicsEngine {
         const vRelProj = rvx * nx + rvy * ny + rvz * nz;
         // Capped: one muscle may cancel at most half the relative velocity per
         // iteration; uncapped this term is quadratic in vRelProj and diverges.
-        const dynamicDamping = Math.min(0.5, this.BASE_MUSCLE_DAMPING + (Math.abs(vRelProj) * this.ADAPTIVE_DAMPING_FACTOR));
+        const dynamicDamping = Math.min(0.5, (this.config.baseMuscleDamping ?? this.BASE_MUSCLE_DAMPING) + (Math.abs(vRelProj) * this.ADAPTIVE_DAMPING_FACTOR));
         
         totalCorrection += vRelProj * dynamicDamping;
 
@@ -510,7 +510,8 @@ export class BioPhysicsEngine {
         const brainWantsGrip = (node.gripSignal || 0) > 0.5;
         // REDUCED: Brain manual grip is no longer "Super Glue". 
         // It's now only 4x stronger than passive friction, not infinite.
-        const thresholdSq = brainWantsGrip ? 0.16 : (this.STATIC_FRICTION_THRESHOLD * this.STATIC_FRICTION_THRESHOLD);
+        const staticFrictionThreshold = this.config.staticFrictionThreshold ?? this.STATIC_FRICTION_THRESHOLD;
+        const thresholdSq = brainWantsGrip ? 0.16 : (staticFrictionThreshold * staticFrictionThreshold);
         
         // GRIP BREAKING: If stress is too high, the "nail" rips out.
         const gripBroken = effectiveStress > (this.config.maxGripStress ?? this.MAX_GRIP_STRESS);

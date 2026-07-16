@@ -13,50 +13,37 @@ export const ENGINE_CONFIG = {
     timeStep: 0.016,
     
     // Core Constraints
-    substeps: 4,               // Number of sub-steps per frame
-    constraintIterations: 3,   // NEW: PBD solver iterations per sub-step
-    maxYieldRatio: 1.5,        // Max allowed spring compression/extension (PBD)
     maxVelocity: 30.0,
-    terminalVelocity: 100.0,   // NEW: Hard cap on velocity magnitude
     relaxationFactor: 0.8,
     iterations: 5,
-    
+
     // Damping & Resistance
-    globalDamping: 0.95,       // NEW: Global linear damping
     baseMuscleDamping: 0.08,
     adaptiveDampingFactor: 0.12,
     dragCoefficient: 0.05,
     rotationalDrag: 2.0,
-    
+
     // Solid Body Physics
     nodeRadius: 0.1,
     hardContactLimit: 0.22,
-    
+
     // Realism & Stress
     maxGripStress: 10.0,
     bucklingThreshold: 20.0,
     tippingForceMagnitude: 0.25,
     maxCorrection: 5.0,
     worldCeiling: 100.0,
-    
+
     // Friction & Grip
     staticFrictionThreshold: 0.2,
     gripCooldown: 60.0,
     gripDepletionRate: 0.20,
     gripRechargeRate: 0.05,
-    
-    // Muscle Limits & Softness
-    muscleSignalLimit: 0.3,
-    muscleSoftness: 0.05,
-    contractionSpeed: 5.0, // length fraction per second
-    antiSingularityRadius: 0.05, // avoid math division by zero
+
+    // Muscle Limits
     slipFactor: 0.4,
     brokenSlipFactor: 0.8,
-    
-    // Wave
-    waveFreq: 1.5,
-    waveAmp: 0.15,
-    
+
     // Density
     densityMultiplier: 3.0,
     headMass: 2.5,

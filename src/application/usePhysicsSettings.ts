@@ -22,19 +22,10 @@ export function usePhysicsSettings(serviceRef: React.MutableRefObject<EvolutionS
     const [staticFrictionThreshold, setStaticFrictionThresholdState] = useState(DEFAULT_SIMULATION_CONFIG.staticFrictionThreshold || 0.2);
     const [maxGripStress, setMaxGripStressState] = useState(DEFAULT_SIMULATION_CONFIG.maxGripStress || 10.0);
     const [gripCooldown, setGripCooldownState] = useState(DEFAULT_SIMULATION_CONFIG.gripCooldown || 60.0);
-    const [muscleSignalLimit, setMuscleSignalLimitState] = useState(DEFAULT_SIMULATION_CONFIG.muscleSignalLimit || 0.3);
-    const [muscleSoftness, setMuscleSoftnessState] = useState(DEFAULT_SIMULATION_CONFIG.muscleSoftness || 0.05);
     const [slipFactor, setSlipFactorState] = useState(DEFAULT_SIMULATION_CONFIG.slipFactor || 0.4);
     const [brokenSlipFactor, setBrokenSlipFactorState] = useState(DEFAULT_SIMULATION_CONFIG.brokenSlipFactor || 0.8);
-    const [waveFreq, setWaveFreqState] = useState(DEFAULT_SIMULATION_CONFIG.waveFreq || 1.5);
-    const [waveAmp, setWaveAmpState] = useState(DEFAULT_SIMULATION_CONFIG.waveAmp || 0.15);
-    const [terminalVelocity, setTerminalVelocityState] = useState(DEFAULT_SIMULATION_CONFIG.terminalVelocity || 100.0);
-    const [maxYieldRatio, setMaxYieldRatioState] = useState(DEFAULT_SIMULATION_CONFIG.maxYieldRatio || 1.5);
-    const [globalDamping, setGlobalDampingState] = useState(DEFAULT_SIMULATION_CONFIG.globalDamping || 0.95);
     const [baseMuscleDamping, setBaseMuscleDampingState] = useState(DEFAULT_SIMULATION_CONFIG.baseMuscleDamping || 0.08);
     const [constraintIterations, setConstraintIterationsState] = useState(DEFAULT_SIMULATION_CONFIG.constraintIterations || 5);
-    const [contractionSpeed, setContractionSpeedState] = useState(DEFAULT_SIMULATION_CONFIG.contractionSpeed || 5.0);
-    const [antiSingularityRadius, setAntiSingularityRadiusState] = useState(DEFAULT_SIMULATION_CONFIG.antiSingularityRadius || 0.05);
     const [relaxationFactor, setRelaxationFactorState] = useState(DEFAULT_SIMULATION_CONFIG.relaxationFactor || 0.25);
     
     // Scarcity Controls
@@ -87,19 +78,10 @@ export function usePhysicsSettings(serviceRef: React.MutableRefObject<EvolutionS
     const setStaticFrictionThreshold = useCallback((val: number) => { setStaticFrictionThresholdState(val); serviceRef.current?.setStaticFrictionThreshold(val); }, [serviceRef]);
     const setMaxGripStress = useCallback((val: number) => { setMaxGripStressState(val); serviceRef.current?.setMaxGripStress(val); }, [serviceRef]);
     const setGripCooldown = useCallback((val: number) => { setGripCooldownState(val); serviceRef.current?.setGripCooldown(val); }, [serviceRef]);
-    const setMuscleSignalLimit = useCallback((val: number) => { setMuscleSignalLimitState(val); serviceRef.current?.setMuscleSignalLimit(val); }, [serviceRef]);
-    const setMuscleSoftness = useCallback((val: number) => { setMuscleSoftnessState(val); serviceRef.current?.setMuscleSoftness(val); }, [serviceRef]);
     const setSlipFactor = useCallback((val: number) => { setSlipFactorState(val); serviceRef.current?.setSlipFactor(val); }, [serviceRef]);
     const setBrokenSlipFactor = useCallback((val: number) => { setBrokenSlipFactorState(val); serviceRef.current?.setBrokenSlipFactor(val); }, [serviceRef]);
-    const setWaveFreq = useCallback((val: number) => { setWaveFreqState(val); serviceRef.current?.setWaveFreq(val); }, [serviceRef]);
-    const setWaveAmp = useCallback((val: number) => { setWaveAmpState(val); serviceRef.current?.setWaveAmp(val); }, [serviceRef]);
-    const setTerminalVelocity = useCallback((val: number) => { setTerminalVelocityState(val); serviceRef.current?.setTerminalVelocity(val); }, [serviceRef]);
-    const setMaxYieldRatio = useCallback((val: number) => { setMaxYieldRatioState(val); serviceRef.current?.setMaxYieldRatio(val); }, [serviceRef]);
-    const setGlobalDamping = useCallback((val: number) => { setGlobalDampingState(val); serviceRef.current?.setGlobalDamping(val); }, [serviceRef]);
     const setBaseMuscleDamping = useCallback((val: number) => { setBaseMuscleDampingState(val); serviceRef.current?.setBaseMuscleDamping(val); }, [serviceRef]);
     const setConstraintIterations = useCallback((val: number) => { setConstraintIterationsState(val); serviceRef.current?.setConstraintIterations(val); }, [serviceRef]);
-    const setContractionSpeed = useCallback((val: number) => { setContractionSpeedState(val); serviceRef.current?.setContractionSpeed(val); }, [serviceRef]);
-    const setAntiSingularityRadius = useCallback((val: number) => { setAntiSingularityRadiusState(val); serviceRef.current?.setAntiSingularityRadius(val); }, [serviceRef]);
     const setRelaxationFactor = useCallback((val: number) => { setRelaxationFactorState(val); serviceRef.current?.setRelaxationFactor(val); }, [serviceRef]);
     
     // ... add all other setters following the same pattern ...
@@ -147,19 +129,10 @@ export function usePhysicsSettings(serviceRef: React.MutableRefObject<EvolutionS
         staticFrictionThreshold, setStaticFrictionThreshold,
         maxGripStress, setMaxGripStress,
         gripCooldown, setGripCooldown,
-        muscleSignalLimit, setMuscleSignalLimit,
-        muscleSoftness, setMuscleSoftness,
         slipFactor, setSlipFactor,
         brokenSlipFactor, setBrokenSlipFactor,
-        waveFreq, setWaveFreq,
-        waveAmp, setWaveAmp,
-        terminalVelocity, setTerminalVelocity,
-        maxYieldRatio, setMaxYieldRatio,
-        globalDamping, setGlobalDamping,
         baseMuscleDamping, setBaseMuscleDamping,
         constraintIterations, setConstraintIterations,
-        contractionSpeed, setContractionSpeed,
-        antiSingularityRadius, setAntiSingularityRadius,
         relaxationFactor, setRelaxationFactor,
         foodSpawnCount, setFoodSpawnCount,
         foodSpawnRadius, setFoodSpawnRadius,

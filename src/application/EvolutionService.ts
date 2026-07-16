@@ -115,20 +115,11 @@ export class EvolutionService {
   public setMaxGripStress(val: number) { this.engine.setConfig({ maxGripStress: val }); }
   public setGripCooldown(val: number) { this.engine.setConfig({ gripCooldown: val }); }
   public setStaticFrictionThreshold(val: number) { this.engine.setConfig({ staticFrictionThreshold: val }); }
-  public setMuscleSignalLimit(val: number) { this.engine.setConfig({ muscleSignalLimit: val }); }
-  public setMuscleSoftness(val: number) { this.engine.setConfig({ muscleSoftness: val }); }
   public setMaxVelocity(val: number) { this.engine.setConfig({ maxVelocity: val }); }
   public setSlipFactor(val: number) { this.engine.setConfig({ slipFactor: val }); }
   public setBrokenSlipFactor(val: number) { this.engine.setConfig({ brokenSlipFactor: val }); }
-  public setWaveFreq(val: number) { this.engine.setConfig({ waveFreq: val }); }
-  public setWaveAmp(val: number) { this.engine.setConfig({ waveAmp: val }); }
-  public setTerminalVelocity(val: number) { this.engine.setConfig({ terminalVelocity: val }); }
-  public setMaxYieldRatio(val: number) { this.engine.setConfig({ maxYieldRatio: val }); }
-  public setGlobalDamping(val: number) { this.engine.setConfig({ globalDamping: val }); }
   public setBaseMuscleDamping(val: number) { this.engine.setConfig({ baseMuscleDamping: val }); }
   public setConstraintIterations(val: number) { this.engine.setConfig({ constraintIterations: val }); }
-  public setContractionSpeed(val: number) { this.engine.setConfig({ contractionSpeed: val }); }
-  public setAntiSingularityRadius(val: number) { this.engine.setConfig({ antiSingularityRadius: val }); }
   public setRelaxationFactor(val: number) { this.engine.setConfig({ relaxationFactor: val }); }
 
   // NEW: DENSITY CONTROL

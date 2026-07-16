@@ -119,27 +119,15 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = (componentProps) =>
 
                 <SubSection title="Advanced Simulation Tuning">
                     <Slider label="Max Speed" value={props.maxVelocity} min={5.0} max={100.0} step={1.0} onChange={props.setMaxVelocity} color="accent-red-600" tooltip="Simulation speed limit. Prevents 'nan' explosions by capping node velocity." />
-                    
-                    {props.terminalVelocity !== undefined && props.setTerminalVelocity && (
-                        <Slider label="Terminal Velocity" value={props.terminalVelocity} min={10.0} max={200.0} step={1.0} onChange={props.setTerminalVelocity} color="accent-red-400" tooltip="Fallback limit on overall acceleration per frame." />
-                    )}
-                    {props.globalDamping !== undefined && props.setGlobalDamping && (
-                        <Slider label="Global Damping" value={props.globalDamping} min={0.8} max={1.0} step={0.01} onChange={props.setGlobalDamping} color="accent-slate-400" tooltip="Additional velocity retention. 1.0 = none." />
-                    )}
+
                     {props.baseMuscleDamping !== undefined && props.setBaseMuscleDamping && (
                         <Slider label="Muscle Damping" value={props.baseMuscleDamping} min={0.01} max={0.5} step={0.01} onChange={props.setBaseMuscleDamping} color="accent-pink-300" tooltip="Local damping to resist infinite spring oscillation." />
                     )}
                     {props.constraintIterations !== undefined && props.setConstraintIterations && (
-                        <Slider label="Constraint Loops" value={props.constraintIterations} min={1} max={10} step={1} onChange={props.setConstraintIterations} color="accent-purple-600" tooltip="GPU PBD Iterations. Higher = stiffer springs but lowers FPS." />
+                        <Slider label="Constraint Loops" value={props.constraintIterations} min={1} max={10} step={1} onChange={props.setConstraintIterations} color="accent-purple-600" tooltip="PBD solver iterations per sub-step. Higher = stiffer springs but lowers FPS." />
                     )}
                     {props.relaxationFactor !== undefined && props.setRelaxationFactor && (
                         <Slider label="Relaxation Factor" value={props.relaxationFactor} min={0.01} max={1.0} step={0.01} onChange={props.setRelaxationFactor} color="accent-indigo-300" tooltip="Jacobi relaxation for solver. Lowers explosive feedback in dense clumps." />
-                    )}
-                    {props.contractionSpeed !== undefined && props.setContractionSpeed && (
-                        <Slider label="Contraction Slew" value={props.contractionSpeed} min={1.0} max={20.0} step={0.1} onChange={props.setContractionSpeed} color="accent-orange-400" tooltip="How fast the muscle can alter its target length. Prevents instant-snap." />
-                    )}
-                    {props.antiSingularityRadius !== undefined && props.setAntiSingularityRadius && (
-                        <Slider label="Repulsion Radius" value={props.antiSingularityRadius} min={0.01} max={0.2} step={0.01} onChange={props.setAntiSingularityRadius} color="accent-teal-300" tooltip="Triggers emergency repulsion when nodes perfectly overlap." />
                     )}
 
                     <Slider label="Grip Threshold" value={props.staticFrictionThreshold} min={0.01} max={1.0} step={0.01} onChange={props.setStaticFrictionThreshold} color="accent-indigo-400" tooltip="Nodes must move slower than this to initiate a grip state." />
@@ -147,18 +135,6 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = (componentProps) =>
                     <Slider label="Grip Cooldown" value={props.gripCooldown} min={0} max={300} step={1} onChange={props.setGripCooldown} color="accent-slate-500" tooltip="Frames to wait after a grip break before capable of re-anchoring (60 = 1s)." />
                     <Slider label="Slip Friction" value={props.slipFactor} min={0.0} max={1.0} step={0.01} onChange={props.setSlipFactor} color="accent-teal-400" tooltip="Velocity preserved when sliding (0.0 = Instant stop, 1.0 = Ice)." />
                     <Slider label="Stress Slip" value={props.brokenSlipFactor} min={0.0} max={1.0} step={0.01} onChange={props.setBrokenSlipFactor} color="accent-teal-600" tooltip="Velocity preserved when grip breaks under stress (usually higher than normal slip)." />
-                </SubSection>
-
-                <SubSection title="Locomotor Dynamics">
-                    <Slider label="Muscle Limit" value={props.muscleSignalLimit} min={0.05} max={0.8} step={0.01} onChange={props.setMuscleSignalLimit} color="accent-pink-400" tooltip="Cap for neural contraction/expansion signal (0.3 = 30% length change)." />
-                    <Slider label="Muscle Softness" value={props.muscleSoftness} min={0.001} max={0.5} step={0.001} onChange={props.setMuscleSoftness} color="accent-pink-600" tooltip="Smoothing factor for muscle targets. Lower is more fluid/organic, higher is jittery/stiff." />
-                    
-                    {props.maxYieldRatio !== undefined && props.setMaxYieldRatio && (
-                        <Slider label="Max Yield Drop" value={props.maxYieldRatio} min={1.0} max={3.0} step={0.05} onChange={props.setMaxYieldRatio} color="accent-teal-400" tooltip="Max stretch limit before muscles refuse to extend." />
-                    )}
-                    
-                    <Slider label="Spinal Wave Freq" value={props.waveFreq} min={0.1} max={5.0} step={0.1} onChange={props.setWaveFreq} color="accent-cyan-400" tooltip="Base frequency of the hardcoded locomotor spine (CPG)." />
-                    <Slider label="Spinal Wave Amp" value={props.waveAmp} min={0.0} max={0.5} step={0.01} onChange={props.setWaveAmp} color="accent-cyan-600" tooltip="Magnitude of the forced spinal expansion wave." />
                 </SubSection>
             </Section>
 

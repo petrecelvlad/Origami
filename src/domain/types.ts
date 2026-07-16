@@ -200,26 +200,12 @@ export interface SimulationConfig {
   bodyMass?: number;
   footMass?: number;
 
-  // Evolution & Neural
-  mutationRate?: number;
-  internalClockSpeed?: number;
-  waveFreq?: number;           // Spinal wave base frequency
-  waveAmp?: number;            // Spinal wave base amplitude
-  
   // Advanced Physics
-  substeps?: number;
   constraintIterations?: number;
-  maxYieldRatio?: number;
-  terminalVelocity?: number;
-  globalDamping?: number;
-  contractionSpeed?: number;
-  antiSingularityRadius?: number;
   maxVelocity?: number;
   staticFrictionThreshold?: number;
   maxGripStress?: number;
   gripCooldown?: number;
-  muscleSignalLimit?: number;
-  muscleSoftness?: number; // Smoothing factor
   slipFactor?: number;
   brokenSlipFactor?: number;
   baseMuscleDamping?: number;
