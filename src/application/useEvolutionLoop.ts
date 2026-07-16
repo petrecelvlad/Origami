@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { EvolutionService } from './EvolutionService';
-import { Organism, FamilyType, ChampionRecord, LineageRecord } from '../domain/types';
+import { Organism, FamilyType, ChampionRecord } from '../domain/types';
 import { useSimulationEngine } from './useSimulationEngine';
 import { usePhysicsSettings } from './usePhysicsSettings';
 import { usePersistence } from './usePersistence';
-import { Serializer } from './Serializer';
 import { toast } from 'sonner';
 
 /**
@@ -61,15 +60,7 @@ export function useEvolutionLoop() {
     engine.setIsFastForward(false);
   }, [engine, serviceRef]);
 
-  // Bare restore for the silent background autoload below — no blueprint
-  // editor to sync here. App.tsx defines its own richer version for
-  // user-triggered file/vault loads, which also syncs the editor.
-  const spawnFromLineage = useCallback((record: LineageRecord, autoStart: boolean = false) => {
-    const { template, champions } = Serializer.buildTemplateFromLineage(record);
-    spawnCustom(template, autoStart, champions);
-  }, [spawnCustom]);
-
-  const persistence = usePersistence(serviceRef, spawnFromLineage);
+  const persistence = usePersistence(serviceRef);
 
   // Initialize
   useEffect(() => {
@@ -192,12 +183,12 @@ export function useEvolutionLoop() {
 
     service.initializePopulation();
 
-
-    // Use persistence.autoloadLineage
-    persistence.autoloadLineage().catch(err => {
-        console.error("Failed to load vault", err);
-        // Removed setPopulation
-    });
+    // Boot restoration (reading the vault and restoring the most recent
+    // lineage) lives solely in App.tsx's restoreMasterOnBoot - it also
+    // syncs the blueprint editor, which this hook has no view of. A second,
+    // bare restore used to run here too: both read the same IndexedDB
+    // singleton concurrently on every boot, racing to call
+    // setTemplateAndReset with no coordination between them.
 
     return () => {
         cancelAnimationFrame(requestRef.current!);

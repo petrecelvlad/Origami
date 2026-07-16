@@ -26,8 +26,7 @@ function downloadJson(data: unknown, filename: string) {
  * }
  */
 export function usePersistence(
-    serviceRef: React.MutableRefObject<EvolutionService | null>,
-    spawnFromLineage: (record: LineageRecord, autoStart: boolean) => void
+    serviceRef: React.MutableRefObject<EvolutionService | null>
 ) {
     const autosaveLineage = useCallback(async () => {
         const record = serviceRef.current?.getLineageRecord();
@@ -35,13 +34,6 @@ export function usePersistence(
             await localVault.saveLineage(record);
         }
     }, [serviceRef]);
-
-    const autoloadLineage = useCallback(async () => {
-        const record = await localVault.getMostRecentLineage();
-        if (record) {
-            spawnFromLineage(record, false);
-        }
-    }, [spawnFromLineage]);
 
     const saveCreature = useCallback(() => {
         const svc = serviceRef.current;
@@ -109,7 +101,6 @@ export function usePersistence(
         loadCreature,
         saveBatchChampions,
         loadBatchCreatures,
-        autosaveLineage,
-        autoloadLineage
+        autosaveLineage
     };
 }
