@@ -2,7 +2,7 @@
  * @propolis
  * {
  *   "role": "NEURAL_CONTROLLER",
- *   "dependencies": ["@domain/types", "@domain/neural", "@domain/math", "@domain/EngineConfig"],
+ *   "dependencies": ["@domain/types", "@domain/neural", "@domain/EngineConfig"],
  *   "constraints": ["C-002", "C-005", "C-006"],
  *   "agent_instructions": "The BrainController must remain a pure orchestrator of neural signals. Sync learned weights back to the genome only via explicit serialization paths."
  * }
@@ -10,7 +10,6 @@
 import { Organism, Node } from '../types';
 import { NeuralNode } from './NeuralNode';
 import { CentralPatternGenerator, CPGInputs } from './CentralPatternGenerator';
-import { VectorOps } from '../math';
 import { SensoryModule } from './SensoryModule';
 import { LearningEngine } from './LearningEngine';
 import { ENGINE_CONFIG } from '../EngineConfig';
@@ -37,7 +36,6 @@ export class BrainController {
   private synapseWeightsCache: Float32Array = new Float32Array(0);
 
   private internalTime = 0;
-  private muscleRestDistances: Float32Array;
 
   private decisionTimer = 0;
   private readonly DECISION_INTERVAL_BASE = ENGINE_CONFIG.neural.decisionInterval; 
@@ -61,7 +59,6 @@ export class BrainController {
         this.neuralNodesMap.set(nodes[i].id, nn);
     }
     
-    this.muscleRestDistances = new Float32Array(organism.muscles.length);
     this.initializeNervousSystem();
 
     if (organism.neuralGenome && organism.neuralGenome.reservoirWeights) {
@@ -99,7 +96,6 @@ export class BrainController {
               this.neuralNodesList.push(nn);
               this.neuralNodesMap.set(nodes[i].id, nn);
           }
-          this.muscleRestDistances = new Float32Array(organism.muscles.length);
           this.initializeNervousSystem();
       } else {
           const vM = organism.neuralGenome.vestibularMultiplier ?? 1.0;
@@ -114,7 +110,6 @@ export class BrainController {
           if (this.cpg) {
               this.cpg.reset();
           }
-          this.syncMuscleDistances(organism);
       }
 
       if (organism.neuralGenome && organism.neuralGenome.synapseWeights) {
@@ -129,63 +124,16 @@ export class BrainController {
       }
   }
 
-  private syncMuscleDistances(organism: Organism) {
-      if (!this.organism) return;
-      const headNode = this.organism.headNode || this.organism.nodes[0];
-      
-      organism.muscles.forEach((m, i) => {
-          const nnA = this.neuralNodesMap.get(m.nodeA);
-          const nnB = this.neuralNodesMap.get(m.nodeB);
-          
-          if (nnA && nnB) {
-              const nA = (nnA as any).physicalNode;
-              const nB = (nnB as any).physicalNode;
-              
-              const midX = (nA.pos.x + nB.pos.x) / 2;
-              const midY = (nA.pos.y + nB.pos.y) / 2;
-              const midZ = (nA.pos.z + nB.pos.z) / 2;
-              
-              const dist = VectorOps.distance(
-                  headNode.pos, 
-                  { x: midX, y: midY, z: midZ }
-              );
-              this.muscleRestDistances[i] = dist;
-          }
-      });
-  }
-
   private initializeNervousSystem() {
       if (!this.organism || this.organism.nodes.length === 0) return;
 
-      let headNode = this.organism.headNode;
+      const headNode = this.organism.headNode;
       if (!headNode) {
-          headNode = this.organism.nodes[0];
           // @ts-ignore
-          headNode.isHead = true; 
+          this.organism.nodes[0].isHead = true;
       }
 
-      // 1. Build Distance Cache
-      this.organism.muscles.forEach((m, i) => {
-          const nnA = this.neuralNodesMap.get(m.nodeA);
-          const nnB = this.neuralNodesMap.get(m.nodeB);
-          
-          if (nnA && nnB) {
-              const nA = (nnA as any).physicalNode;
-              const nB = (nnB as any).physicalNode;
-              
-              const midX = (nA.pos.x + nB.pos.x) / 2;
-              const midY = (nA.pos.y + nB.pos.y) / 2;
-              const midZ = (nA.pos.z + nB.pos.z) / 2;
-              
-              const dist = VectorOps.distance(
-                  headNode!.pos, 
-                  { x: midX, y: midY, z: midZ }
-              );
-              this.muscleRestDistances[i] = dist;
-          }
-      });
-
-      // 2. Build Synapse Cache
+      // 1. Build Synapse Cache
       this.synapses = [];
       const weights = this.organism?.neuralGenome?.synapseWeights || [];
       const weightCount = weights.length || 1;

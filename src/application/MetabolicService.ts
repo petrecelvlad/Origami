@@ -87,9 +87,9 @@ export class MetabolicService {
 
   private calculateMovementLoss(org: Organism, config: MetabolicConfig): number {
     // We assume EvolutionService handles the cumulative distanceTraveled calculation per step
-    const prevDist = (org as any)._prevDist || 0;
+    const prevDist = org.previousDistanceTraveled || 0;
     const distDelta = Math.max(0, org.distanceTraveled - prevDist);
-    (org as any)._prevDist = org.distanceTraveled;
+    org.previousDistanceTraveled = org.distanceTraveled;
 
     let dynamicMovementCost = config.movementCost;
     if (org.family === FamilyType.SCOUT) {

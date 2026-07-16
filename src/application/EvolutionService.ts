@@ -358,59 +358,6 @@ export class EvolutionService {
       child.neuralGenome.meta = meta;
   }
 
-  private generateFoodTrack(organism: Organism): void {
-      const numFood = this.foodSpawnCount; 
-      // Reuse the existing array to prevent creating massive garbage every generation
-      if (!organism.visibleFood) organism.visibleFood = [];
-
-      let centerX = 0;
-      let centerZ = 0;
-
-      // OPTIMIZATION: Use cached headNode
-      const head = organism.headNode;
-
-      if (head) {
-          centerX = head.pos.x;
-          centerZ = head.pos.z;
-      }
-      
-      const spread = this.foodSpawnRadius; 
-      
-      // Vertical Range Logic
-      const minY = this.foodSpawnMinHeight;
-      const maxY = Math.max(minY, this.foodSpawnMaxHeight);
-      const rangeY = maxY - minY;
-
-      for(let i=0; i<numFood; i++) {
-          const theta = Math.random() * Math.PI * 2;
-          const radius = 1.0 + Math.random() * spread; 
-          const x = centerX + Math.cos(theta) * radius;
-          const z = centerZ + Math.sin(theta) * radius;
-          
-          // Use configurable height range
-          const y = minY + Math.random() * rangeY;
-
-          if (organism.visibleFood[i]) {
-              organism.visibleFood[i].pos.x = x;
-              organism.visibleFood[i].pos.y = y;
-              organism.visibleFood[i].pos.z = z;
-              organism.visibleFood[i].energyValue = this.foodEnergy;
-              organism.visibleFood[i].consumed = false;
-          } else {
-              organism.visibleFood.push({
-                  id: `f_${i}`,
-                  pos: { x, y, z },
-                  energyValue: this.foodEnergy,
-                  consumed: false
-              });
-          }
-      }
-      // Trim extraneous food items if settings were lowered
-      if (organism.visibleFood.length > numFood) {
-          organism.visibleFood.length = numFood;
-      }
-  }
-
   public getAllChampions(): ChampionRecord[] {
       return this.lineage.getAllChampions();
   }
@@ -475,7 +422,7 @@ export class EvolutionService {
   public async step(dt: number): Promise<void> {
     this.simulationTime += dt;
 
-    this.updatePhysics(dt, false);
+    this.updatePhysics(dt);
     await this.updateMetabolism(dt);
     this.postPhysicsLogic();
   }
@@ -658,7 +605,7 @@ export class EvolutionService {
       }
   }
 
-  private updatePhysics(dt: number, fastMode: boolean): void {
+  private updatePhysics(dt: number): void {
     const contractility = (this.engine as any).config?.globalContractility ?? 4.0;
 
     this.population.forEach(org => {
@@ -669,12 +616,12 @@ export class EvolutionService {
       if (!org.brain) {
           org.brain = new BrainController(org);
       }
-      
+
       // All bots use the same physical parameters
       org.brain.update(dt, contractility, this.globalVisionRadius);
-      
+
       // 3. PHYSICS UPDATE
-      this.engine.updateOrganism(org, this.simulationTime, fastMode);
+      this.engine.updateOrganism(org, this.simulationTime);
     });
   }
 
@@ -689,16 +636,16 @@ export class EvolutionService {
               // 1. Position tracking for metabolism
               const head = org.headNode;
               if (head) {
-                  const lastPos = (org as any)._lastHeadPos;
+                  const lastPos = org.previousHeadPos;
                   if (!lastPos) {
-                      (org as any)._lastHeadPos = { ...head.pos };
+                      org.previousHeadPos = { ...head.pos };
                   } else {
                       const dx = head.pos.x - lastPos.x;
                       const dy = head.pos.y - lastPos.y;
                       const dz = head.pos.z - lastPos.z;
                       const stepDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
                       if (isFinite(stepDist)) org.distanceTraveled += stepDist;
-                      (org as any)._lastHeadPos = { ...head.pos };
+                      org.previousHeadPos = { ...head.pos };
                   }
               }
 
@@ -866,6 +813,8 @@ export class EvolutionService {
           clone.timeAlive = 0;
           clone.visibleFood = [];
           clone.distanceTraveled = 0;
+          clone.previousHeadPos = undefined;
+          clone.previousDistanceTraveled = undefined;
 
           if (clone.brain) {
             clone.brain.reset(clone);

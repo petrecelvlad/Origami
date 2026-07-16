@@ -54,14 +54,14 @@ export class BioPhysicsEngine {
       this.config = { ...this.config, ...config };
   }
 
-  public updateOrganism(organism: Organism, totalTime: number, fastMode: boolean = false): void {
-    if (!organism.isAlive) return; 
-    
+  public updateOrganism(organism: Organism, totalTime: number): void {
+    if (!organism.isAlive) return;
+
     organism.isInPain = false;
 
-    const subSteps = fastMode ? 3 : 8; 
+    const subSteps = 8;
     const subDt = this.config.timeStep / subSteps;
-    const gY = this.config.gravity * subDt * subDt; 
+    const gY = this.config.gravity * subDt * subDt;
 
     const nodes = organism.nodes;
     const len = nodes.length;
@@ -78,17 +78,17 @@ export class BioPhysicsEngine {
         this.applyTippingForces(organism, subDt);
 
         this.integrate(organism, subDt, gY);
-        if (!fastMode) this.applyRotationalDrag(organism); 
-        
-        const loops = fastMode ? 2 : this.ITERATIONS;
+        this.applyRotationalDrag(organism);
+
+        const loops = this.ITERATIONS;
 
         for (let i = 0; i < loops; i++) {
             this.resolveMuscles(organism);
-            if (!fastMode && i === loops - 1) {
-                this.resolveSelfCollisions(organism); 
+            if (i === loops - 1) {
+                this.resolveSelfCollisions(organism);
             }
         }
-        
+
         this.resolveFloor(organism);
         
         // --- EXPLOSION CHECK ---

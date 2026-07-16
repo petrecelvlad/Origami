@@ -35,7 +35,6 @@ export class GeneticOperator {
             synapseWeights: this.randomArray(numMuscles * 2),
             reservoirWeights: this.randomArray(reservoirSize * reservoirSize),
             outputWeights: this.randomArray(numMuscles * reservoirSize),
-            predictionWeights: this.randomArray(reservoirSize),
             gripWeights: this.randomArray(numNodes * reservoirSize),
             biases: this.randomArray(numNodes),
             // Default Evolvable Params
@@ -69,7 +68,6 @@ export class GeneticOperator {
             target.synapseWeights = copyArray(source.synapseWeights, target.synapseWeights);
             target.reservoirWeights = copyArray(source.reservoirWeights, target.reservoirWeights);
             target.outputWeights = copyArray(source.outputWeights, target.outputWeights);
-            target.predictionWeights = source.predictionWeights ? copyArray(source.predictionWeights, target.predictionWeights) : [];
             target.gripWeights = source.gripWeights ? copyArray(source.gripWeights, target.gripWeights) : [];
             target.biases = copyArray(source.biases, target.biases);
             target.internalClockSpeed = source.internalClockSpeed ?? 1.0;
@@ -85,7 +83,6 @@ export class GeneticOperator {
             synapseWeights: source.synapseWeights ? [...source.synapseWeights] : [],
             reservoirWeights: source.reservoirWeights ? [...source.reservoirWeights] : [],
             outputWeights: source.outputWeights ? [...source.outputWeights] : [],
-            predictionWeights: source.predictionWeights ? [...source.predictionWeights] : [],
             gripWeights: source.gripWeights ? [...source.gripWeights] : [],
             biases: source.biases ? [...source.biases] : [],
             internalClockSpeed: source.internalClockSpeed ?? 1.0,
@@ -113,7 +110,6 @@ export class GeneticOperator {
         mutateArray(genome.synapseWeights);
         mutateArray(genome.reservoirWeights);
         mutateArray(genome.outputWeights);
-        mutateArray(genome.predictionWeights);
         mutateArray(genome.gripWeights);
         mutateArray(genome.biases);
 
@@ -176,7 +172,6 @@ export class GeneticOperator {
             target.synapseWeights = crossoverModule(parentA.synapseWeights, parentB.synapseWeights, target.synapseWeights);
             target.reservoirWeights = crossoverModule(parentA.reservoirWeights, parentB.reservoirWeights, target.reservoirWeights);
             target.outputWeights = crossoverModule(parentA.outputWeights, parentB.outputWeights, target.outputWeights);
-            target.predictionWeights = crossoverModule(parentA.predictionWeights || [], parentB.predictionWeights || [], target.predictionWeights);
             target.gripWeights = crossoverModule(parentA.gripWeights || [], parentB.gripWeights || [], target.gripWeights);
             target.biases = crossoverModule(parentA.biases, parentB.biases, target.biases);
             
@@ -196,7 +191,6 @@ export class GeneticOperator {
             synapseWeights: crossoverModule(parentA.synapseWeights, parentB.synapseWeights),
             reservoirWeights: crossoverModule(parentA.reservoirWeights, parentB.reservoirWeights),
             outputWeights: crossoverModule(parentA.outputWeights, parentB.outputWeights),
-            predictionWeights: crossoverModule(parentA.predictionWeights || [], parentB.predictionWeights || []),
             gripWeights: crossoverModule(parentA.gripWeights || [], parentB.gripWeights || []),
             biases: crossoverModule(parentA.biases, parentB.biases),
             internalClockSpeed: Math.random() < 0.8 ? parentA.internalClockSpeed : parentB.internalClockSpeed,

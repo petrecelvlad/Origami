@@ -1,6 +1,11 @@
 // Hexagonal Architecture: Domain Layer (Inner Core)
 // Zero dependencies on UI or Rendering libraries.
 
+// Type-only: erased at compile time, so this does not create a runtime
+// circular dependency with BrainController (which imports Organism/Node
+// from this file).
+import type { BrainController } from './neural/BrainController';
+
 export interface Vec3 {
   x: number;
   y: number;
@@ -82,9 +87,7 @@ export interface NeuralGenome {
   // LSM Weights: The chaotic reservoir weights (simplified as a float array)
   reservoirWeights: number[];
   // Output Weights: Mapping the reservoir state to muscle contraction
-  outputWeights: number[]; 
-  // NEW: Predictive World Model Weights (Reservoir -> Predicted Sensory Input)
-  predictionWeights: number[];
+  outputWeights: number[];
   // NEW: Grip Control Weights (Reservoir -> Node Suction Release)
   gripWeights: number[]; 
   // Biases for neurons
@@ -141,8 +144,8 @@ export interface Organism {
   muscles: Muscle[];
   // The Blueprint
   neuralGenome: NeuralGenome;
-  // The Runtime Brain (Controller instance, not serialized usually, but here for simplicity)
-  brain?: any; 
+  // The Runtime Brain (Controller instance; never persisted — see ChampionRecord)
+  brain?: BrainController;
   
   // Stats
   fitness: number; // Total Score
@@ -152,6 +155,8 @@ export interface Organism {
   // NEW: Distance Metrics (Replacing Posture)
   initialHeadPos: Vec3; // BENCHMARK: Where the head started
   distanceTraveled: number; // Real-time distance from start
+  previousHeadPos?: Vec3; // Per-step raw head position, for EvolutionService's movement-delta tracking
+  previousDistanceTraveled?: number; // Last-seen distanceTraveled, for MetabolicService's movement-cost delta
 
   // ODOMETER STATE (Sampled distance tracking)
   lastSampledPos?: Vec3;
