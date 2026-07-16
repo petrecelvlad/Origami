@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, MutableRefObject } from 'react';
+import { isAdminBuild } from '../config';
 
 interface StatsOverlayProps {
     status: 'EDITING' | 'SIMULATING';
@@ -153,10 +154,12 @@ export const StatsOverlay: React.FC<StatsOverlayProps> = ({ status, stats, stats
                 ) : (
                     <div className="p-4">
                         <div className="flex items-center justify-between mb-4">
-                             <div className="flex items-center gap-1">
-                                 <button onClick={() => cycleTrackedLeader(-1)} className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">◀</button>
-                                 <button onClick={() => cycleTrackedLeader(1)} className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">▶</button>
-                             </div>
+                             {isAdminBuild && (
+                                 <div className="flex items-center gap-1">
+                                     <button onClick={() => cycleTrackedLeader(-1)} className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">◀</button>
+                                     <button onClick={() => cycleTrackedLeader(1)} className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">▶</button>
+                                 </div>
+                             )}
                              <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Follow Camera</div>
                         </div>
                         <div className="flex items-center gap-4">

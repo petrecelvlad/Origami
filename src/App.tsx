@@ -8,6 +8,7 @@ import { isAdminBuild } from './config';
 // UI Components
 import { UnifiedStage } from './infrastructure/visuals/UnifiedStage';
 import { CommandBar } from './ui/CommandBar';
+import { PublicCommandBar } from './ui/PublicCommandBar';
 import { ToolDock } from './ui/ToolDock';
 import { SettingsDrawer } from './ui/SettingsDrawer';
 import { StatsOverlay } from './ui/StatsOverlay';
@@ -46,7 +47,9 @@ function App() {
   } = useEvolutionLoop();
 
   // STATE MACHINE
-  const [status, setStatus] = useState<'EDITING' | 'SIMULATING'>('EDITING');
+  // Public build has no editor to enter - it always spectates whatever
+  // population is running (default spawn or restored from the vault/cloud).
+  const [status, setStatus] = useState<'EDITING' | 'SIMULATING'>(isAdminBuild ? 'EDITING' : 'SIMULATING');
   const [showBestOnly, setShowBestOnly] = useState(true);
   
   // EDITOR STATE
@@ -266,33 +269,46 @@ function App() {
             </div>
         )}
 
-        <div className="pointer-events-auto">
-          <ToolDock 
-              status={status}
-              editorTool={editorTool}
-              setEditorTool={setEditorTool}
-              brushType={brushType}
-              setBrushType={setBrushType}
-              isSymmetryEnabled={isSymmetryEnabled}
-              setIsSymmetryEnabled={setIsSymmetryEnabled}
-              onClear={handleClear}
-              onGenerate={handleGenerate}
-              onExportMatrix={handleExportMatrix}
-              onImportMatrix={handleImportMatrix}
-          />
-        </div>
+        {isAdminBuild && (
+          <div className="pointer-events-auto">
+            <ToolDock
+                status={status}
+                editorTool={editorTool}
+                setEditorTool={setEditorTool}
+                brushType={brushType}
+                setBrushType={setBrushType}
+                isSymmetryEnabled={isSymmetryEnabled}
+                setIsSymmetryEnabled={setIsSymmetryEnabled}
+                onClear={handleClear}
+                onGenerate={handleGenerate}
+                onExportMatrix={handleExportMatrix}
+                onImportMatrix={handleImportMatrix}
+            />
+          </div>
+        )}
 
         <div className="pointer-events-auto">
-          <CommandBar 
-              status={status}
-              isRunning={isRunning}
-              isAutoEvolving={isAutoEvolving}
-              generation={generation}
-              onPlay={handlePlay}
-              onStop={handleStop}
-              onTogglePause={() => setIsRunning(!isRunning)}
-              onToggleAuto={toggleAutoEvolve}
-          />
+          {isAdminBuild ? (
+            <CommandBar
+                status={status}
+                isRunning={isRunning}
+                isAutoEvolving={isAutoEvolving}
+                generation={generation}
+                onPlay={handlePlay}
+                onStop={handleStop}
+                onTogglePause={() => setIsRunning(!isRunning)}
+                onToggleAuto={toggleAutoEvolve}
+            />
+          ) : (
+            <PublicCommandBar
+                isRunning={isRunning}
+                onTogglePause={() => setIsRunning(!isRunning)}
+                showBestOnly={showBestOnly}
+                onToggleBestOnly={() => setShowBestOnly(!showBestOnly)}
+                cycleTrackedLeader={cycleTrackedLeader}
+                generation={generation}
+            />
+          )}
         </div>
 
         {isAdminBuild && (
@@ -307,10 +323,11 @@ function App() {
           </div>
         )}
 
-        {/* FPS STATS (Bottom Left) */}
-        <div className="absolute bottom-6 left-6 pointer-events-auto">
-           <FpsStats />
-        </div>
+        {isAdminBuild && (
+          <div className="absolute bottom-6 left-6 pointer-events-auto">
+             <FpsStats />
+          </div>
+        )}
 
         {/* VAULT PANEL */}
         <div className="pointer-events-auto">
