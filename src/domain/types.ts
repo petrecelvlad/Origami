@@ -263,38 +263,3 @@ export interface LineageRecord {
     champions: ChampionRecord[];
     updatedAt: number;
 }
-
-// --- TYPE AUGMENTATION FOR R3F ---
-// We explicitly augment global JSX to cover all React/TS configurations.
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      mesh: any;
-      group: any;
-      instancedMesh: any;
-      primitive: any;
-      
-      ambientLight: any;
-      directionalLight: any;
-      pointLight: any;
-      spotLight: any;
-      
-      boxGeometry: any;
-      planeGeometry: any;
-      sphereGeometry: any;
-      cylinderGeometry: any;
-      coneGeometry: any;
-      icosahedronGeometry: any;
-      
-      meshStandardMaterial: any;
-      meshBasicMaterial: any;
-      meshPhysicalMaterial: any;
-      
-      gridHelper: any;
-      axesHelper: any;
-      
-      [elemName: string]: any;
-    }
-  }
-}

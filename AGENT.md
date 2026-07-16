@@ -103,15 +103,15 @@ Non-negotiable constraints:
 | ID | Name | Scope | Description |
 |---|---|---|---|
 | C-001 | ~~WebGPU Priority~~ | Infrastructure | **RETIRED** (2026-07-15) — the GPU path was deleted by owner decision (it never ran successfully on any machine; see [docs/05_ARCHIVE/05_ISSUES.md](docs/05_ARCHIVE/05_ISSUES.md) Issue #6). `BioPhysicsEngine` (CPU) is the only physics engine. Per the Charter, never reintroduce a second engine path. |
-| C-002 | Stateless Domain | Domain | Domain logic should not hold persistent state; use input/output patterns. |
-| C-003 | Immutable State | Application | Simulation state updates must be immutable to support undo/redo and persistence. |
-| C-004 | Energy Conservation | Domain | Total system energy must be tracked and conserved (Metabolism). |
-| C-005 | Type Safety | Global | No `any` types. All data structures must be typed. |
+| C-002 | Per-Creature State Only | Domain | Domain classes (`BrainController`, `CentralPatternGenerator`, `SensoryModule`, `LearningEngine`) hold runtime state, and that's intentional — but only state owned by the one creature instance holding it (neural activations, CPG buffers, learning traces). Never global, shared, or cross-creature state. |
+| C-003 | Mutate Freely In-Engine, Snapshot at the Boundary | Application | Physics/simulation state mutates in place every substep by design — that's what makes the hot path fast at population scale; this is not a violation. The real invariant: anything captured across a persistence boundary (`ChampionRecord`, `LineageRecord`, file exports) must be a deep, immutable snapshot that never aliases a live mutable array. See `Serializer.serializeChampion`'s genome deep-copy for the pattern, and Session 06 finding M5 for what happens when this slips. |
+| C-004 | Energy Is the Lifecycle Currency | Domain | This is an open system, not a closed conservation law — food is a real influx (not redistributed from other organisms), decay/movement/pain are the only outflows, and energy hitting zero is death. Every gain/loss must go through `MetabolicService` or `EcosystemService`, not an ad hoc mutation elsewhere. |
+| C-005 | Type Safety | Global | `strict: true` in `tsconfig.json`, enforced by `npm run lint`. No *implicit* `any` anywhere. Explicit `any` is permitted only at genuine type-system boundaries (ambient JSX declarations, generic pub/sub callback signatures) and should be a deliberate, justified choice, not a default reached for under time pressure. |
 | C-006 | Zero-Dependency Domain | Domain | Core logic must not depend on UI frameworks (React) or Infrastructure (storage, rendering, platform APIs). |
 
 Additional directives:
 - **Modular Evolution:** Services must be decoupled (Metabolism, Ecosystem, Lineage) to prevent the "EvolutionService God Object" anti-pattern.
-- **Determinism:** The simulation state must be serializable and reproducible across sessions.
+- **Determinism (not yet true — do not assume it):** simulation runs are *not* currently reproducible across sessions; `Math.random()` is unseeded throughout genetics, physics jitter, food placement, and CPG init. A seeded-RNG service would make golden-run regression tests possible, but threading it through every call site is a deliberate future feature, not implied by this file. Owner decision (2026-07-16): document reality now, scope the RNG work separately if/when wanted.
 
 Full constraint registry lives at [docs/01_BLUEPRINTS/05_GUARDRAILS.md](docs/01_BLUEPRINTS/05_GUARDRAILS.md) — that file is the source of truth; update it, not just this summary.
 

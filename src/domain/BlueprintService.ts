@@ -196,7 +196,8 @@ export class BlueprintService {
 
       // If no head, use the first cell as reference or 0,0,0
       if (!hasHead && this.cells.size > 0) {
-          const firstKey = this.cells.keys().next().value;
+          // size > 0 guarantees the iterator yields a value.
+          const firstKey = this.cells.keys().next().value!;
           const [x, y, z] = firstKey.split(',').map(Number);
           headPos = { x, y, z };
       }

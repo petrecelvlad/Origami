@@ -491,6 +491,9 @@ export class BioPhysicsEngine {
     const numGrips = potentialGrippers.length;
     
     for (const node of potentialGrippers) {
+        // Pass 1 (above) already guarantees this for every node reaching here.
+        if (node.gripStamina === undefined) node.gripStamina = 1.0;
+
         const vx = node.pos.x - node.oldPos.x;
         const vz = node.pos.z - node.oldPos.z;
         const vSq = vx*vx + vz*vz;
