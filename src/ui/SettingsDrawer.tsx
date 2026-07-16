@@ -16,7 +16,7 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = (componentProps) =>
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    'Fitness Scoring': true
+    'physics': true
   });
   
   const toggleSection = (name: string) => {
@@ -80,134 +80,147 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = (componentProps) =>
         }`}>
             <h2 className="text-xl font-bold text-white mb-6 mt-12">Settings</h2>
 
-            {/* Physics Section */}
-            <Section title="Physics Engine" isOpen={!!expandedSections['Physics Engine']} onToggle={() => toggleSection('Physics Engine')}>
-                <Slider label="Bone Stiffness" value={props.globalStiffness} min={0.1} max={2.0} step={0.1} onChange={props.setGlobalStiffness} color="accent-blue-500" tooltip="Restoring force of the skeleton. Higher values make the creature more rigid and bouncy." />
-                <Slider label="Muscle Power" value={props.globalContractility} min={0.0} max={6.0} step={0.1} onChange={props.setGlobalContractility} color="accent-purple-500" tooltip="Multiplier for neural signals. Controls how much force muscles apply when expanding/contracting." />
-                {props.shapeMemory !== undefined && props.setShapeMemory && (
-                     <Slider label="Structure Memory" value={props.shapeMemory} min={0.0} max={2.0} step={0.1} onChange={props.setShapeMemory} color="accent-indigo-500" tooltip="How strongly cells try to return to their original rest-pose positions." />
-                )}
-                {props.density !== undefined && props.setDensity && (
-                     <Slider label="Creature Density" value={props.density} min={0.5} max={3.0} step={0.1} onChange={props.setDensity} color="accent-blue-400" tooltip="Global mass multiplier. Heavier creatures have more inertia but require more force to move." />
-                )}
-                
-                <SubSection title="Individual Cell Masses">
-                    {props.headMass !== undefined && props.setHeadMass && (
-                        <Slider label="Head Node Mass" value={props.headMass} min={0.1} max={50.0} step={0.1} onChange={props.setHeadMass} color="accent-red-400" tooltip="Mass of HEAD nodes. High head mass creates a stable 'anchor' for the body to whip around." />
-                    )}
-                    {props.bodyMass !== undefined && props.setBodyMass && (
-                        <Slider label="Body Node Mass" value={props.bodyMass} min={0.1} max={50.0} step={0.1} onChange={props.setBodyMass} color="accent-slate-400" tooltip="Mass of standard BODY nodes. Affects energy distribution and torso momentum." />
-                    )}
-                    {props.footMass !== undefined && props.setFootMass && (
-                        <Slider label="Foot Node Mass" value={props.footMass} min={0.1} max={50.0} step={0.1} onChange={props.setFootMass} color="accent-green-400" tooltip="Mass of FOOT nodes. Heavier feet can find more traction but take more energy to lift." />
-                    )}
-                </SubSection>
-            </Section>
+            {/* physics - mirrors ENGINE_CONFIG.physics: same section name, same
+                field order, same internal subgroup comments, so a value read
+                in EngineConfig.ts maps directly to a labeled control here. */}
+            <Section title="physics" isOpen={!!expandedSections['physics']} onToggle={() => toggleSection('physics')}>
+                <Slider label="gravity" value={props.gravity} min={0.0} max={2000.0} step={10.0} onChange={props.setGravity} color="accent-red-500" tooltip="Gravity Strength. Downward acceleration. High gravity keeps creatures grounded but crushes weak skeletons." />
+                <Slider label="friction" value={props.friction} min={0.80} max={0.99} step={0.01} onChange={props.setFriction} color="accent-teal-500" tooltip="Air Resistance. Global damping factor. Lower values simulate thick atmosphere (drag)." />
 
-            {/* NEW: World Forces */}
-            <Section title="World Forces" isOpen={!!expandedSections['World Forces']} onToggle={() => toggleSection('World Forces')}>
-                <Slider label="Gravity Strength" value={props.gravity} min={0.0} max={2000.0} step={10.0} onChange={props.setGravity} color="accent-red-500" tooltip="Downward acceleration. High gravity keeps creatures grounded but crushes weak skeletons." />
-                <Slider label="Air Resistance" value={props.friction} min={0.80} max={0.99} step={0.01} onChange={props.setFriction} color="accent-teal-500" tooltip="Global damping factor. Lower values simulate thick atmosphere (drag)." />
-                <Slider label="Stability (Gyro)" value={props.rotationalDrag} min={0.0} max={2.0} step={0.01} onChange={props.setRotationalDrag} color="accent-yellow-500" tooltip="Resistance to angular momentum. Helps creatures stay upright and not spin out of control." />
-                
-                {props.gripDepletion !== undefined && props.setGripDepletion && (
-                    <Slider label="Grip Stamina (Drain)" value={props.gripDepletion} min={0.1} max={5.0} step={0.1} onChange={props.setGripDepletion} color="accent-orange-500" tooltip="Rate at which feet lose grip when stressed (leaning or pulling)." />
-                )}
-                {props.gripRecharge !== undefined && props.setGripRecharge && (
-                    <Slider label="Grip Recovery" value={props.gripRecharge} min={0.001} max={0.1} step={0.001} onChange={props.setGripRecharge} color="accent-lime-500" tooltip="Base rate of grip stamina regeneration when not under stress." />
-                )}
-
-                <SubSection title="Advanced Simulation Tuning">
-                    <Slider label="Max Speed" value={props.maxVelocity} min={5.0} max={100.0} step={1.0} onChange={props.setMaxVelocity} color="accent-red-600" tooltip="Simulation speed limit. Prevents 'nan' explosions by capping node velocity." />
-
-                    {props.baseMuscleDamping !== undefined && props.setBaseMuscleDamping && (
-                        <Slider label="Muscle Damping" value={props.baseMuscleDamping} min={0.01} max={0.5} step={0.01} onChange={props.setBaseMuscleDamping} color="accent-pink-300" tooltip="Local damping to resist infinite spring oscillation." />
+                <SubSection title="Core Constraints">
+                    <Slider label="maxVelocity" value={props.maxVelocity} min={5.0} max={100.0} step={1.0} onChange={props.setMaxVelocity} color="accent-red-600" tooltip="Max Speed. Simulation speed limit. Prevents 'nan' explosions by capping node velocity." />
+                    {props.relaxationFactor !== undefined && props.setRelaxationFactor && (
+                        <Slider label="relaxationFactor" value={props.relaxationFactor} min={0.01} max={1.0} step={0.01} onChange={props.setRelaxationFactor} color="accent-indigo-300" tooltip="Relaxation Factor. Jacobi relaxation for solver. Lowers explosive feedback in dense clumps." />
                     )}
                     {props.constraintIterations !== undefined && props.setConstraintIterations && (
-                        <Slider label="Constraint Loops" value={props.constraintIterations} min={1} max={10} step={1} onChange={props.setConstraintIterations} color="accent-purple-600" tooltip="PBD solver iterations per sub-step. Higher = stiffer springs but lowers FPS." />
+                        <Slider label="iterations" value={props.constraintIterations} min={1} max={10} step={1} onChange={props.setConstraintIterations} color="accent-purple-600" tooltip="Constraint Loops (config key: iterations). PBD solver iterations per sub-step. Higher = stiffer springs but lowers FPS." />
                     )}
-                    {props.relaxationFactor !== undefined && props.setRelaxationFactor && (
-                        <Slider label="Relaxation Factor" value={props.relaxationFactor} min={0.01} max={1.0} step={0.01} onChange={props.setRelaxationFactor} color="accent-indigo-300" tooltip="Jacobi relaxation for solver. Lowers explosive feedback in dense clumps." />
-                    )}
+                </SubSection>
 
-                    <Slider label="Grip Threshold" value={props.staticFrictionThreshold} min={0.01} max={1.0} step={0.01} onChange={props.setStaticFrictionThreshold} color="accent-indigo-400" tooltip="Nodes must move slower than this to initiate a grip state." />
-                    <Slider label="Max Grip Force" value={props.maxGripStress} min={1.0} max={100.0} step={1.0} onChange={props.setMaxGripStress} color="accent-orange-600" tooltip="How much force can a grip point handle before ripping off 'Stress Break'." />
-                    <Slider label="Grip Cooldown" value={props.gripCooldown} min={0} max={300} step={1} onChange={props.setGripCooldown} color="accent-slate-500" tooltip="Frames to wait after a grip break before capable of re-anchoring (60 = 1s)." />
-                    <Slider label="Slip Friction" value={props.slipFactor} min={0.0} max={1.0} step={0.01} onChange={props.setSlipFactor} color="accent-teal-400" tooltip="Velocity preserved when sliding (0.0 = Instant stop, 1.0 = Ice)." />
-                    <Slider label="Stress Slip" value={props.brokenSlipFactor} min={0.0} max={1.0} step={0.01} onChange={props.setBrokenSlipFactor} color="accent-teal-600" tooltip="Velocity preserved when grip breaks under stress (usually higher than normal slip)." />
+                <SubSection title="Damping & Resistance">
+                    {props.baseMuscleDamping !== undefined && props.setBaseMuscleDamping && (
+                        <Slider label="baseMuscleDamping" value={props.baseMuscleDamping} min={0.01} max={0.5} step={0.01} onChange={props.setBaseMuscleDamping} color="accent-pink-300" tooltip="Muscle Damping. Local damping to resist infinite spring oscillation." />
+                    )}
+                    <Slider label="rotationalDrag" value={props.rotationalDrag} min={0.0} max={2.0} step={0.01} onChange={props.setRotationalDrag} color="accent-yellow-500" tooltip="Stability (Gyro). Resistance to angular momentum. Helps creatures stay upright and not spin out of control." />
+                </SubSection>
+
+                <SubSection title="Realism & Stress">
+                    <Slider label="maxGripStress" value={props.maxGripStress} min={1.0} max={100.0} step={1.0} onChange={props.setMaxGripStress} color="accent-orange-600" tooltip="Max Grip Force. How much force can a grip point handle before ripping off 'Stress Break'." />
+                </SubSection>
+
+                <SubSection title="Friction & Grip">
+                    <Slider label="staticFrictionThreshold" value={props.staticFrictionThreshold} min={0.01} max={1.0} step={0.01} onChange={props.setStaticFrictionThreshold} color="accent-indigo-400" tooltip="Grip Threshold. Nodes must move slower than this to initiate a grip state." />
+                    <Slider label="gripCooldown" value={props.gripCooldown} min={0} max={300} step={1} onChange={props.setGripCooldown} color="accent-slate-500" tooltip="Frames to wait after a grip break before capable of re-anchoring (60 = 1s)." />
+                    {props.gripDepletion !== undefined && props.setGripDepletion && (
+                        <Slider label="gripDepletionRate" value={props.gripDepletion} min={0.1} max={5.0} step={0.1} onChange={props.setGripDepletion} color="accent-orange-500" tooltip="Grip Stamina (Drain). Rate at which feet lose grip when stressed (leaning or pulling)." />
+                    )}
+                    {props.gripRecharge !== undefined && props.setGripRecharge && (
+                        <Slider label="gripRechargeRate" value={props.gripRecharge} min={0.001} max={0.1} step={0.001} onChange={props.setGripRecharge} color="accent-lime-500" tooltip="Grip Recovery. Base rate of grip stamina regeneration when not under stress." />
+                    )}
+                </SubSection>
+
+                <SubSection title="Muscle Limits">
+                    <Slider label="slipFactor" value={props.slipFactor} min={0.0} max={1.0} step={0.01} onChange={props.setSlipFactor} color="accent-teal-400" tooltip="Slip Friction. Velocity preserved when sliding (0.0 = Instant stop, 1.0 = Ice)." />
+                    <Slider label="brokenSlipFactor" value={props.brokenSlipFactor} min={0.0} max={1.0} step={0.01} onChange={props.setBrokenSlipFactor} color="accent-teal-600" tooltip="Stress Slip. Velocity preserved when grip breaks under stress (usually higher than normal slip)." />
+                </SubSection>
+
+                <SubSection title="Density">
+                    {props.density !== undefined && props.setDensity && (
+                        <Slider label="densityMultiplier" value={props.density} min={0.5} max={3.0} step={0.1} onChange={props.setDensity} color="accent-blue-400" tooltip="Creature Density. Global mass multiplier. Heavier creatures have more inertia but require more force to move." />
+                    )}
+                    {props.headMass !== undefined && props.setHeadMass && (
+                        <Slider label="headMass" value={props.headMass} min={0.1} max={50.0} step={0.1} onChange={props.setHeadMass} color="accent-red-400" tooltip="Mass of HEAD nodes. High head mass creates a stable 'anchor' for the body to whip around." />
+                    )}
+                    {props.bodyMass !== undefined && props.setBodyMass && (
+                        <Slider label="bodyMass" value={props.bodyMass} min={0.1} max={50.0} step={0.1} onChange={props.setBodyMass} color="accent-slate-400" tooltip="Mass of standard BODY nodes. Affects energy distribution and torso momentum." />
+                    )}
+                    {props.footMass !== undefined && props.setFootMass && (
+                        <Slider label="footMass" value={props.footMass} min={0.1} max={50.0} step={0.1} onChange={props.setFootMass} color="accent-green-400" tooltip="Mass of FOOT nodes. Heavier feet can find more traction but take more energy to lift." />
+                    )}
+                </SubSection>
+
+                <SubSection title="Structural">
+                    {props.shapeMemory !== undefined && props.setShapeMemory && (
+                        <Slider label="shapeMemoryStrength" value={props.shapeMemory} min={0.0} max={2.0} step={0.1} onChange={props.setShapeMemory} color="accent-indigo-500" tooltip="Structure Memory. How strongly cells try to return to their original rest-pose positions." />
+                    )}
+                    <Slider label="globalStiffness" value={props.globalStiffness} min={0.1} max={2.0} step={0.1} onChange={props.setGlobalStiffness} color="accent-blue-500" tooltip="Bone Stiffness. Restoring force of the skeleton. Higher values make the creature more rigid and bouncy." />
+                    <Slider label="globalContractility" value={props.globalContractility} min={0.0} max={6.0} step={0.1} onChange={props.setGlobalContractility} color="accent-purple-500" tooltip="Muscle Power. Multiplier for neural signals. Controls how much force muscles apply when expanding/contracting." />
                 </SubSection>
             </Section>
 
-            {/* Environment Section */}
-            <Section title="Environment" isOpen={!!expandedSections['Environment']} onToggle={() => toggleSection('Environment')}>
-                <Slider label="Food Count" value={props.foodSpawnCount} min={10} max={100} step={1} onChange={props.setFoodSpawnCount} color="accent-yellow-500" />
-                <Slider label="Food Spread Factor" value={props.foodSpreadFactor} min={0} max={1.0} step={0.05} onChange={props.setFoodSpreadFactor} color="accent-yellow-600" tooltip="0: Completely random, 1: Perfectly equidistant." />
-                <Slider label="Spawn Radius" value={props.foodSpawnRadius} min={2.0} max={10.0} step={0.5} onChange={props.setFoodSpawnRadius} color="accent-orange-500" />
-                <SubSection title="Food Height Range">
-                    <Slider label="Min Height" value={props.foodSpawnMinHeight} min={0.1} max={5.0} step={0.1} onChange={props.setFoodSpawnMinHeight} color="accent-lime-500" />
-                    <Slider label="Max Height" value={props.foodSpawnMaxHeight} min={0.1} max={10.0} step={0.1} onChange={props.setFoodSpawnMaxHeight} color="accent-lime-500" />
-                </SubSection>
-                <Slider label="Vision Range" value={props.visionRadius} min={1.0} max={10.0} step={0.5} onChange={props.setVisionRadius} color="accent-teal-500" />
-                <Slider label="Interaction Radius" value={props.interactionRadius} min={0.2} max={2.0} step={0.1} onChange={props.setInteractionRadius} color="accent-pink-500" tooltip="Consolidated radius for eating and food magnet interaction." />
-                
-                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-slate-800/50">
-                    <Toggle label="Show Vision Radius" active={props.showVision} onClick={() => props.setShowVision(!props.showVision)} />
-                    <Toggle label="Show Mouth Sphere" active={props.showMouth} onClick={() => props.setShowMouth(!props.showMouth)} />
-                </div>
-            </Section>
+            {/* metabolism - mirrors ENGINE_CONFIG.metabolism */}
+            <Section title="metabolism" isOpen={!!expandedSections['metabolism']} onToggle={() => toggleSection('metabolism')}>
+                <Slider label="baseDecay" value={props.baseDecay} min={0.0} max={20.0} step={0.5} onChange={props.setBaseDecay} color="accent-orange-400" tooltip="Base Decay (Time)." />
+                <Slider label="movementCost" value={props.movementCost} min={0.0} max={5.0} step={0.1} onChange={props.setMovementCost} color="accent-red-400" tooltip="Movement Cost." />
+                <Slider label="foodEnergy" value={props.foodEnergy} min={5} max={100} step={5} onChange={props.setFoodEnergy} color="accent-green-400" tooltip="Food Energy." />
+                <Slider label="groundContactMetabolismMultiplier" value={props.groundContactMetabolismMultiplier} min={1.0} max={5.0} step={0.1} onChange={props.setGroundContactMetabolismMultiplier} color="accent-amber-600" tooltip="Grounded Penalty. Multiplier for metabolic drain when a body cell touches the ground. 1.0 = no extra cost, 1.5 = 50% increase." />
 
-            {/* Metabolism Section */}
-            <Section title="Metabolism & Survival" isOpen={!!expandedSections['Metabolism & Survival']} onToggle={() => toggleSection('Metabolism & Survival')}>
-                <Slider label="Base Decay (Time)" value={props.baseDecay} min={0.0} max={20.0} step={0.5} onChange={props.setBaseDecay} color="accent-orange-400" />
-                <Slider label="Movement Cost" value={props.movementCost} min={0.0} max={5.0} step={0.1} onChange={props.setMovementCost} color="accent-red-400" />
-                <Slider label="Grounded Penalty" value={props.groundContactMetabolismMultiplier} min={1.0} max={5.0} step={0.1} onChange={props.setGroundContactMetabolismMultiplier} color="accent-amber-600" tooltip="Multiplier for metabolic drain when a body cell touches the ground. 1.0 = no extra cost, 1.5 = 50% increase." />
-                <Slider label="Food Energy" value={props.foodEnergy} min={5} max={100} step={5} onChange={props.setFoodEnergy} color="accent-green-400" />
-                
-                <SubSection title="Family Specific Traits">
+                <SubSection title="Family Traits">
                     {props.setRedBasalMultiplier && (
-                        <Slider 
-                            label="Red (Brute) Drain Multiplier" 
-                            value={props.redBasalMultiplier || 3.0} 
-                            min={0.1} max={10.0} step={0.1} 
-                            onChange={props.setRedBasalMultiplier} 
-                            color="accent-red-500" 
-                            tooltip="Multiplies passive energy drain. Red bots burn calories just by existing, forcing them to sprint and take risks before they starve."
+                        <Slider
+                            label="redBasalMultiplier"
+                            value={props.redBasalMultiplier || 3.0}
+                            min={0.1} max={10.0} step={0.1}
+                            onChange={props.setRedBasalMultiplier}
+                            color="accent-red-500"
+                            tooltip="Red (Brute) Drain Multiplier. Multiplies passive energy drain. Red bots burn calories just by existing, forcing them to sprint and take risks before they starve."
                         />
                     )}
                     {props.setBlueMovementMultiplier && (
-                        <Slider 
-                            label="Blue (Monolith) Cost Multiplier" 
-                            value={props.blueMovementMultiplier || 0.1} 
-                            min={0.1} max={2.0} step={0.1} 
-                            onChange={props.setBlueMovementMultiplier} 
-                            color="accent-blue-500" 
-                            tooltip="Multiplies the energy cost of moving. Blue bots use fewer calories to move, allowing them to rely on thick armor and slow steps."
+                        <Slider
+                            label="blueMovementMultiplier"
+                            value={props.blueMovementMultiplier || 0.1}
+                            min={0.1} max={2.0} step={0.1}
+                            onChange={props.setBlueMovementMultiplier}
+                            color="accent-blue-500"
+                            tooltip="Blue (Monolith) Cost Multiplier. Multiplies the energy cost of moving. Blue bots use fewer calories to move, allowing them to rely on thick armor and slow steps."
                         />
                     )}
                     {props.setGreenMovementMultiplier && (
-                        <Slider 
-                            label="Green (Scout) Cost Multiplier" 
-                            value={props.greenMovementMultiplier || 3.0} 
-                            min={0.1} max={10.0} step={0.1} 
-                            onChange={props.setGreenMovementMultiplier} 
-                            color="accent-green-500" 
-                            tooltip="Multiplies the energy cost of moving. Green bots must find the most efficient gate to avoid wasting batteries on unnecessary flailing."
+                        <Slider
+                            label="greenMovementMultiplier"
+                            value={props.greenMovementMultiplier || 3.0}
+                            min={0.1} max={10.0} step={0.1}
+                            onChange={props.setGreenMovementMultiplier}
+                            color="accent-green-500"
+                            tooltip="Green (Scout) Cost Multiplier. Multiplies the energy cost of moving. Green bots must find the most efficient gate to avoid wasting batteries on unnecessary flailing."
                         />
                     )}
                 </SubSection>
             </Section>
 
-            {/* Evolution Section */}
-            <Section title="Evolution" isOpen={!!expandedSections['Evolution']} onToggle={() => toggleSection('Evolution')}>
+            {/* ecosystem - mirrors ENGINE_CONFIG.ecosystem */}
+            <Section title="ecosystem" isOpen={!!expandedSections['ecosystem']} onToggle={() => toggleSection('ecosystem')}>
+                <Slider label="foodSpawnCount" value={props.foodSpawnCount} min={10} max={100} step={1} onChange={props.setFoodSpawnCount} color="accent-yellow-500" tooltip="Food Count." />
+                <Slider label="foodSpawnRadius" value={props.foodSpawnRadius} min={2.0} max={10.0} step={0.5} onChange={props.setFoodSpawnRadius} color="accent-orange-500" tooltip="Spawn Radius." />
+                <Slider label="foodSpawnMinHeight" value={props.foodSpawnMinHeight} min={0.1} max={5.0} step={0.1} onChange={props.setFoodSpawnMinHeight} color="accent-lime-500" tooltip="Food Height Range - Min." />
+                <Slider label="foodSpawnMaxHeight" value={props.foodSpawnMaxHeight} min={0.1} max={10.0} step={0.1} onChange={props.setFoodSpawnMaxHeight} color="accent-lime-500" tooltip="Food Height Range - Max." />
+                <Slider label="interactionRadius" value={props.interactionRadius} min={0.2} max={2.0} step={0.1} onChange={props.setInteractionRadius} color="accent-pink-500" tooltip="Interaction Radius. Consolidated radius for eating and food magnet interaction." />
+
+                <div className="mt-2 pt-2 border-t border-slate-800/50">
+                    <Slider label="breedingThreshold" value={props.breedingThreshold} min={1} max={20} step={1} onChange={props.setBreedingThreshold} color="accent-pink-500" tooltip="Breeding Threshold (Food). Foods needed to trigger an asexual breeding event." />
+                </div>
+
+                <Slider label="foodSpreadFactor" value={props.foodSpreadFactor} min={0} max={1.0} step={0.05} onChange={props.setFoodSpreadFactor} color="accent-yellow-600" tooltip="Food Spread Factor. 0: Completely random, 1: Perfectly equidistant." />
+            </Section>
+
+            {/* neural - mirrors ENGINE_CONFIG.neural (only visionRadius is exposed) */}
+            <Section title="neural" isOpen={!!expandedSections['neural']} onToggle={() => toggleSection('neural')}>
+                <Slider label="visionRadius" value={props.visionRadius} min={1.0} max={10.0} step={0.5} onChange={props.setVisionRadius} color="accent-teal-500" tooltip="Vision Range." />
+            </Section>
+
+            {/* evolution - mirrors ENGINE_CONFIG.evolution */}
+            <Section title="evolution" isOpen={!!expandedSections['evolution']} onToggle={() => toggleSection('evolution')}>
                 <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                    <Slider 
-                        label="Simulation Scale (Batches)" 
-                        value={props.populationSize} 
-                        min={10} 
-                        max={100} 
-                        step={10} 
-                        onChange={props.setPopulationSize} 
-                        color="accent-purple-500" 
+                    <Slider
+                        label="populationSize"
+                        value={props.populationSize}
+                        min={10}
+                        max={100}
+                        step={10}
+                        onChange={props.setPopulationSize}
+                        color="accent-purple-500"
+                        tooltip="Simulation Scale (Batches)."
                     />
                     <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-mono">
                         <span>Min: 1 Batch (10 bots)</span>
@@ -216,40 +229,32 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = (componentProps) =>
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-slate-800/50">
-                    <Slider 
-                        label="Auto-Save Interval" 
-                        value={props.vaultSaveFrequency} 
-                        min={1} 
-                        max={10} 
-                        step={1} 
-                        onChange={props.setVaultSaveFrequency} 
-                        color="accent-cyan-500" 
+                    <Slider
+                        label="vaultSaveFrequency"
+                        value={props.vaultSaveFrequency}
+                        min={1}
+                        max={10}
+                        step={1}
+                        onChange={props.setVaultSaveFrequency}
+                        color="accent-cyan-500"
+                        tooltip="Auto-Save Interval."
                     />
                     <div className="text-[10px] text-slate-500 font-mono mt-1">
                         Archives champions every {props.vaultSaveFrequency} generation{props.vaultSaveFrequency > 1 ? 's' : ''}
                     </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-800/50">
-                    <Slider 
-                        label="Breeding Threshold (Food)" 
-                        value={props.breedingThreshold} 
-                        min={1} 
-                        max={20} 
-                        step={1} 
-                        onChange={props.setBreedingThreshold} 
-                        color="accent-pink-500" 
-                    />
-                    <div className="text-[10px] text-slate-500 font-mono mt-1">
-                        Foods needed to trigger an asexual breeding event
-                    </div>
+                <div className="mt-4 pt-4 border-t border-slate-800/50 space-y-4">
+                    <Slider label="odometryScale" value={props.odometryScale} min={0} max={20} step={1} onChange={props.setOdometryScale} color="accent-blue-500" tooltip="Odometry Weight. Reward for raw distance traveled away from the origin in the Z-axis." />
+                    <Slider label="territoryScale" value={props.territoryScale} min={0} max={200} step={5} onChange={props.setTerritoryScale} color="accent-teal-500" tooltip="Territory Weight. Bonus for exploring 'novel' regions of the simulation floor." />
+                    <Slider label="foodScoreIncrement" value={props.foodScoreIncrement} min={0} max={50} step={1} onChange={props.setFoodScoreIncrement} color="accent-green-500" tooltip="Food Reward (Inc). Sets the points for the first food. Each subsequent food increases the reward by this same amount (exponential reward structure)." />
                 </div>
             </Section>
 
-            <Section title="Fitness Scoring" isOpen={!!expandedSections['Fitness Scoring']} onToggle={() => toggleSection('Fitness Scoring')}>
-                <Slider label="Odometry Weight" value={props.odometryScale} min={0} max={20} step={1} onChange={props.setOdometryScale} color="accent-blue-500" tooltip="Reward for raw distance traveled away from the origin in the Z-axis." />
-                <Slider label="Territory Weight" value={props.territoryScale} min={0} max={200} step={5} onChange={props.setTerritoryScale} color="accent-teal-500" tooltip="Bonus for exploring 'novel' regions of the simulation floor." />
-                <Slider label="Food Reward (Inc)" value={props.foodScoreIncrement} min={0} max={50} step={1} onChange={props.setFoodScoreIncrement} color="accent-green-500" tooltip="Sets the points for the first food. Each subsequent food increases the reward by this same amount (exponential reward structure)." />
+            {/* Display - UI-only view toggles; no ENGINE_CONFIG source */}
+            <Section title="Display (UI only)" isOpen={!!expandedSections['Display (UI only)']} onToggle={() => toggleSection('Display (UI only)')}>
+                <Toggle label="Show Vision Radius" active={props.showVision} onClick={() => props.setShowVision(!props.showVision)} />
+                <Toggle label="Show Mouth Sphere" active={props.showMouth} onClick={() => props.setShowMouth(!props.showMouth)} />
             </Section>
 
             {/* IO Section */}
