@@ -45,29 +45,29 @@ export const ENGINE_CONFIG = {
     brokenSlipFactor: 0.8,
 
     // Density
-    densityMultiplier: 3.0,
+    densityMultiplier: 2.0,
     headMass: 2.5,
     bodyMass: 0.5,
-    footMass: 5.0,
+    footMass: 2.5,
     
     // Structural
-    shapeMemoryStrength: 0.7,
-    globalStiffness: 0.8,
-    globalContractility: 5.0,
+    shapeMemoryStrength: 0.8,
+    globalStiffness: 0.7,
+    globalContractility: 3.0,
   },
   
   metabolism: {
     startEnergy: 100,
     baseDecay: 0.5,
-    movementCost: 1.0,
+    movementCost: 2.0,
     hungerAccel: 1.00,
     foodEnergy: 50,
     groundContactMetabolismMultiplier: 5.0,
     
     // Family Traits
     redBasalMultiplier: 0.1,
-    blueMovementMultiplier: 0.5,
-    greenMovementMultiplier: 1.5,
+    blueMovementMultiplier: 1.5,
+    greenMovementMultiplier: 2.5,
     
     // Ageing
     ageTaxThreshold: 3000,
@@ -76,14 +76,14 @@ export const ENGINE_CONFIG = {
   
   ecosystem: {
     foodSpawnCount: 100,
-    foodSpawnRadius: 7.0,
+    foodSpawnRadius: 10.0,
     foodSpawnMinHeight: 1.6,
     foodSpawnMaxHeight: 1.8,
     
     interactionRadius: 0.5,
     magnetForce: 0.5,
-    breedingThreshold: 20,
-    foodSpreadFactor: 0.5,
+    breedingThreshold: 15,
+    foodSpreadFactor: 0.8,
   },
   
   neural: {
