@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Icon } from './Icons';
 import { Archive, ChevronDown, ChevronUp } from 'lucide-react';
 import { usePhysicsConfig } from '../application/PhysicsConfigContext';
+import { generateEngineConfigSource } from './generateEngineConfigSource';
 
 interface SettingsDrawerProps {
   showBestOnly: boolean;
@@ -268,6 +270,18 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = (componentProps) =>
                     </button>
                  </div>
                  <input type="file" ref={fileInputRef} className="hidden" accept="application/json" onChange={handleFileChange} />
+
+                 <button
+                    onClick={async () => {
+                        const source = generateEngineConfigSource(props);
+                        await navigator.clipboard.writeText(source);
+                        toast.success('EngineConfig.ts copied - paste over the file to make it permanent.');
+                    }}
+                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 text-xs font-bold text-emerald-400"
+                    title="Copies EngineConfig.ts's exact source, with every slider above baked in as the new default"
+                 >
+                    COPY EngineConfig.ts
+                 </button>
             </Section>
 
              <div className="mt-8 text-xs text-slate-600 text-center">
