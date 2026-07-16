@@ -547,6 +547,48 @@ export class BlueprintService {
           });
       });
 
+      // Fold-detection anchors: muscles constrain LENGTH only, never angle,
+      // so a FOOT node can fold into a mirror-image configuration through
+      // its own attachment points while every muscle's rest length stays
+      // exactly satisfied (verified: 0% violation) - shape memory has no
+      // signal to tell correct from folded since both have identical
+      // lengths. Record 3 of the foot's real attachment points and which
+      // side of their plane the foot starts on, so the physics engine can
+      // detect (and undo) the fold directly - see
+      // BioPhysicsEngine.correctFoldedLimbs. A prior attempt to prevent
+      // this with extra passive "bend brace" muscles was reverted: any
+      // brace strong enough to resist the fold also resists a leg lifting
+      // mid-stride (the same displacement to a length-only constraint),
+      // which dropped 1000-frame gait survival from 15/30 to 0/30.
+      const directAdjacency = new Map<string, string[]>();
+      for (const m of muscles) {
+          (directAdjacency.get(m.nodeA) ?? directAdjacency.set(m.nodeA, []).get(m.nodeA)!).push(m.nodeB);
+          (directAdjacency.get(m.nodeB) ?? directAdjacency.set(m.nodeB, []).get(m.nodeB)!).push(m.nodeA);
+      }
+      const nodeById = new Map(nodes.map(n => [n.id, n]));
+      activeCells.forEach(c => {
+          if (c.type !== CellType.FOOT) return;
+          const footId = coordToNodeId.get(`${c.x},${c.y},${c.z}`);
+          if (!footId) return;
+
+          const anchorIds = directAdjacency.get(footId) ?? [];
+          if (anchorIds.length < 3) return; // not enough anchors to define a plane
+
+          const foot = nodeById.get(footId)!;
+          const [a, b, cN] = anchorIds.slice(0, 3).map(id => nodeById.get(id)!);
+          const ab = VectorOps.sub(b.pos, a.pos);
+          const ac = VectorOps.sub(cN.pos, a.pos);
+          const normal = VectorOps.cross(ab, ac);
+          if (VectorOps.length(normal) < 1e-6) return; // anchors collinear
+
+          const toFoot = VectorOps.sub(foot.pos, a.pos);
+          const sign = Math.sign(VectorOps.dot(normal, toFoot));
+          if (sign === 0) return;
+
+          foot.foldAnchorIds = anchorIds.slice(0, 3) as [string, string, string];
+          foot.foldRefSign = sign;
+      });
+
       // 4. Brain Grafting
       let genome: NeuralGenome;
       

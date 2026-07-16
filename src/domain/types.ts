@@ -37,8 +37,14 @@ export interface Node {
   currentStress?: number; // Visualization/Debug: How much force is pulling this node
   
   // EDITOR METADATA (Preserves shape upon reloading)
-  originalGridCoord?: { x: number; y: number; z: number }; 
+  originalGridCoord?: { x: number; y: number; z: number };
   cellType?: CellType; // NEW: Stores the type for restoring the blueprint
+
+  // TOPOLOGICAL FOLD DETECTION (distance-only muscles can't tell a limb's
+  // correct pose from its mirror-image fold through the same anchors - see
+  // BioPhysicsEngine.correctFoldedLimbs). Set once at generation time.
+  foldAnchorIds?: [string, string, string];
+  foldRefSign?: number;
 
   // Neural State
   activation?: number; // 0.0 to 1.0 (Visualization Glow)

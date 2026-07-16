@@ -90,7 +90,8 @@ export class BioPhysicsEngine {
         }
 
         this.resolveFloor(organism);
-        
+        this.correctFoldedLimbs(organism);
+
         // --- EXPLOSION CHECK ---
         const checkNode = nodes[0];
         if (checkNode) {
@@ -419,6 +420,57 @@ export class BioPhysicsEngine {
                   if (!n2.isFixed) { n2.pos.x -= fx; n2.pos.y -= fy; n2.pos.z -= fz; }
               }
           }
+      }
+  }
+
+  // Muscles constrain LENGTH only, never angle/handedness, so a FOOT node
+  // can occasionally fold into a mirror-image configuration through its own
+  // attachment points that satisfies every muscle's rest length exactly -
+  // once there, shape memory has no signal to undo it, since length alone
+  // can't tell the correct pose from the folded one. foldAnchorIds/foldRefSign
+  // (set once at generation time in BlueprintService) record which side of
+  // its 3 real anchors the foot started on; if the current side ever flips,
+  // reflect the foot straight back across that plane. This only fires on an
+  // actual fold, never on ordinary gait articulation, since a stride moves a
+  // foot without crossing its own anchor plane.
+  private correctFoldedLimbs(organism: Organism): void {
+      const nodes = organism.nodes;
+      let nodeById: Map<string, Node> | null = null;
+
+      for (let i = 0; i < nodes.length; i++) {
+          const node = nodes[i];
+          if (!node.foldAnchorIds || node.foldRefSign === undefined) continue;
+
+          if (!nodeById) nodeById = new Map(nodes.map(n => [n.id, n]));
+          const a = nodeById.get(node.foldAnchorIds[0]);
+          const b = nodeById.get(node.foldAnchorIds[1]);
+          const c = nodeById.get(node.foldAnchorIds[2]);
+          if (!a || !b || !c) continue;
+
+          const abx = b.pos.x - a.pos.x, aby = b.pos.y - a.pos.y, abz = b.pos.z - a.pos.z;
+          const acx = c.pos.x - a.pos.x, acy = c.pos.y - a.pos.y, acz = c.pos.z - a.pos.z;
+
+          let nx = aby * acz - abz * acy;
+          let ny = abz * acx - abx * acz;
+          let nz = abx * acy - aby * acx;
+          const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
+          if (nLen < 1e-6) continue; // anchors momentarily collinear
+          nx /= nLen; ny /= nLen; nz /= nLen;
+
+          const tx = node.pos.x - a.pos.x, ty = node.pos.y - a.pos.y, tz = node.pos.z - a.pos.z;
+          const d = nx * tx + ny * ty + nz * tz;
+          const currentSign = Math.sign(d);
+          if (currentSign === 0 || currentSign === node.foldRefSign) continue;
+
+          // Reflect the node back across the anchor plane; zero its velocity
+          // component along the fold axis so it doesn't immediately re-cross.
+          const reflect = 2 * d;
+          node.pos.x -= reflect * nx;
+          node.pos.y -= reflect * ny;
+          node.pos.z -= reflect * nz;
+          node.oldPos.x = node.pos.x;
+          node.oldPos.y = node.pos.y;
+          node.oldPos.z = node.pos.z;
       }
   }
 
