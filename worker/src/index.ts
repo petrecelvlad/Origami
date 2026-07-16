@@ -11,6 +11,15 @@ interface LineageRow {
   updated_at: number;
 }
 
+interface ChampionRow {
+  lineage_id: string;
+  family: string;
+  generation: number;
+  fitness: number;
+  payload: string;
+  updated_at: number;
+}
+
 function isFiniteDeep(value: unknown): boolean {
   if (typeof value === "number") return Number.isFinite(value);
   if (Array.isArray(value)) return value.every(isFiniteDeep);
@@ -20,14 +29,32 @@ function isFiniteDeep(value: unknown): boolean {
   return true;
 }
 
-async function handleGet(env: Env): Promise<Response> {
-  const { results } = await env.DB.prepare(
-    "SELECT lineage_id, project_name, generation, payload, updated_at FROM lineages"
-  ).all<LineageRow>();
-  return Response.json(results);
+// A lineage row is the body-shell project shell; each of its champions is a
+// separate row (owner request, 2026-07-16) referencing it by lineage_id.
+// Reassembled here so the client's LineageRecord shape (shell + nested
+// champions array) never has to change - only the storage is normalized.
+async function handleGetLineages(env: Env): Promise<Response> {
+  const [{ results: lineages }, { results: champions }] = await Promise.all([
+    env.DB.prepare("SELECT lineage_id, project_name, generation, payload, updated_at FROM lineages").all<LineageRow>(),
+    env.DB.prepare("SELECT lineage_id, family, generation, fitness, payload, updated_at FROM champions").all<ChampionRow>(),
+  ]);
+
+  const championsByLineage = new Map<string, unknown[]>();
+  for (const row of champions) {
+    const list = championsByLineage.get(row.lineage_id) ?? [];
+    list.push(JSON.parse(row.payload));
+    championsByLineage.set(row.lineage_id, list);
+  }
+
+  const merged = lineages.map(row => ({
+    ...JSON.parse(row.payload) as Record<string, unknown>,
+    champions: championsByLineage.get(row.lineage_id) ?? [],
+  }));
+
+  return Response.json(merged);
 }
 
-async function handlePost(request: Request, env: Env, lineageId: string): Promise<Response> {
+async function handlePostLineage(request: Request, env: Env, lineageId: string): Promise<Response> {
   const authHeader = request.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (token !== env.API_TOKEN) {
@@ -65,6 +92,44 @@ async function handlePost(request: Request, env: Env, lineageId: string): Promis
   return Response.json({ lineageId, generation: body.generation });
 }
 
+async function handlePostChampion(request: Request, env: Env, lineageId: string, family: string): Promise<Response> {
+  const authHeader = request.headers.get("Authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  if (token !== env.API_TOKEN) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  let body: { generation: number; fitness: number; payload: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Rejected: malformed JSON body", { status: 400 });
+  }
+
+  if (!Number.isFinite(body.generation) || !Number.isFinite(body.fitness) || !isFiniteDeep(body.payload)) {
+    return new Response("Rejected: non-finite numeric field in payload", { status: 400 });
+  }
+
+  const result = await env.DB.prepare(
+    `INSERT INTO champions (lineage_id, family, generation, fitness, payload, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+     ON CONFLICT(lineage_id, family) DO UPDATE SET
+       generation = excluded.generation,
+       fitness = excluded.fitness,
+       payload = excluded.payload,
+       updated_at = excluded.updated_at
+     WHERE excluded.generation > champions.generation`
+  )
+    .bind(lineageId, family, body.generation, body.fitness, JSON.stringify(body.payload), Date.now())
+    .run();
+
+  if (result.meta.changes === 0) {
+    return new Response("Rejected: incoming generation is not newer than stored generation", { status: 409 });
+  }
+
+  return Response.json({ lineageId, family, generation: body.generation });
+}
+
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -86,12 +151,17 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/lineages") {
-      return withCors(await handleGet(env));
+      return withCors(await handleGetLineages(env));
     }
 
-    const postMatch = url.pathname.match(/^\/lineages\/([^/]+)$/);
-    if (request.method === "POST" && postMatch) {
-      return withCors(await handlePost(request, env, postMatch[1]));
+    const lineagePostMatch = url.pathname.match(/^\/lineages\/([^/]+)$/);
+    if (request.method === "POST" && lineagePostMatch) {
+      return withCors(await handlePostLineage(request, env, lineagePostMatch[1]));
+    }
+
+    const championPostMatch = url.pathname.match(/^\/lineages\/([^/]+)\/champions\/([^/]+)$/);
+    if (request.method === "POST" && championPostMatch) {
+      return withCors(await handlePostChampion(request, env, championPostMatch[1], championPostMatch[2]));
     }
 
     return withCors(new Response("Not found", { status: 404 }));

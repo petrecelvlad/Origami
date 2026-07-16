@@ -4,12 +4,8 @@ const fs = require("fs");
 
 const API_BASE = "https://origami-champions-api.contact-youos.workers.dev";
 
-async function pushLineage(token, record) {
-  if (!record.lineageId) {
-    console.error("Skipping a file with no lineageId field (not a lineage export)");
-    return;
-  }
-
+async function pushLineageShell(token, record) {
+  const { champions, ...shell } = record;
   const res = await fetch(`${API_BASE}/lineages/${record.lineageId}`, {
     method: "POST",
     headers: {
@@ -19,17 +15,42 @@ async function pushLineage(token, record) {
     body: JSON.stringify({
       projectName: record.projectName ?? "Unnamed Project",
       generation: record.generation ?? 1,
-      payload: record,
+      payload: shell,
     }),
   });
 
   if (res.status === 200) {
-    const body = await res.json();
-    console.log(`OK   ${record.projectName} -> generation ${body.generation}`);
+    console.log(`OK   lineage shell (${record.projectName}) -> generation ${record.generation}`);
+    return true;
+  }
+  if (res.status === 409) {
+    console.log(`SKIP lineage shell (${record.projectName}) -> cloud already has an equal/newer generation`);
+    return false;
+  }
+  console.error(`FAIL lineage shell (${record.projectName}) -> ${res.status} ${await res.text()}`);
+  return false;
+}
+
+async function pushChampion(token, lineageId, champion) {
+  const res = await fetch(`${API_BASE}/lineages/${lineageId}/champions/${champion.family}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      generation: champion.generation ?? 1,
+      fitness: champion.fitness ?? 0,
+      payload: champion,
+    }),
+  });
+
+  if (res.status === 200) {
+    console.log(`OK   ${champion.family} -> generation ${champion.generation}`);
   } else if (res.status === 409) {
-    console.log(`SKIP ${record.projectName} -> cloud already has an equal/newer generation`);
+    console.log(`SKIP ${champion.family} -> cloud already has an equal/newer generation`);
   } else {
-    console.error(`FAIL ${record.projectName} -> ${res.status} ${await res.text()}`);
+    console.error(`FAIL ${champion.family} -> ${res.status} ${await res.text()}`);
   }
 }
 
@@ -49,7 +70,15 @@ async function main() {
   }
 
   const record = JSON.parse(fs.readFileSync(input, "utf8"));
-  await pushLineage(token, record);
+  if (!record.lineageId) {
+    console.error("Not a lineage export (missing lineageId field).");
+    process.exit(1);
+  }
+
+  await pushLineageShell(token, record);
+  for (const champion of record.champions ?? []) {
+    await pushChampion(token, record.lineageId, champion);
+  }
 }
 
 main();

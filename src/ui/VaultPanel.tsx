@@ -122,8 +122,9 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeL
                                             onClick={async () => {
                                                 setCloudLoading(true);
                                                 try {
-                                                    await championCloudVault.pushLineage(activeLineage);
-                                                    toast.success(`Pushed to Cloud: generation ${activeLineage.generation}`);
+                                                    const { pushed, skipped } = await championCloudVault.pushLineageWithChampions(activeLineage);
+                                                    if (pushed.length > 0) toast.success(`Pushed to Cloud: ${pushed.join(', ')}`);
+                                                    if (skipped.length > 0) toast.info(`Skipped (no token / not newer): ${skipped.join(', ')}`);
                                                 } catch (err) {
                                                     toast.error(err instanceof Error ? err.message : 'Cloud push failed');
                                                 } finally {
