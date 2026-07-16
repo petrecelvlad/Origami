@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useEvolutionLoop } from './application/useEvolutionLoop';
 import { BlueprintService } from './domain/BlueprintService';
-import { ShapeType, Organism, CellType, LineageRecord } from './domain/types';
+import { Organism, CellType, LineageRecord } from './domain/types';
 import { Serializer } from './application/Serializer';
 import { isAdminBuild } from './config';
 
@@ -52,7 +52,6 @@ function App() {
   // EDITOR STATE
   const blueprintService = useMemo(() => new BlueprintService(), []);
   const [blueprintCells, setBlueprintCells] = useState(blueprintService.getCells());
-  const [blueprintType, setBlueprintType] = useState(ShapeType.CUBE);
   const [editorTool, setEditorTool] = useState<EditorTool>('VIEW');
   const [brushType, setBrushType] = useState<CellType>(CellType.BODY); 
   const [isSymmetryEnabled, setIsSymmetryEnabled] = useState(true);
@@ -63,10 +62,8 @@ function App() {
   // A stored/loaded record is a body shell blueprint + champion brains
   // (Charter invariants 1-2). Building the template from it IS deserialization.
   const syncEditorToLineage = (record: LineageRecord, template: Organism) => {
-      blueprintService.setType(record.shape);
       blueprintService.loadCells(record.blueprint);
       setBlueprintCells(blueprintService.getCells());
-      setBlueprintType(record.shape);
       setEditingOrganism(template);
   };
 
@@ -220,12 +217,6 @@ function App() {
       toast.success(`Matrix Loaded: Synchronized ${record.champions.length} families.`);
   };
   
-  const handleSetShape = (t: ShapeType) => {
-      setBlueprintType(t);
-      blueprintService.setType(t);
-      setBlueprintCells([...blueprintService.getCells()]);
-  };
-
   return (
     <PhysicsConfigProvider settings={settings}>
     <div className="relative w-full h-full overflow-hidden bg-slate-900 select-none">
@@ -238,7 +229,6 @@ function App() {
           trackedLeaderId={trackedLeaderId}
           // Edit Props
           blueprintCells={blueprintCells}
-          blueprintType={blueprintType}
           editorTool={editorTool}
           brushType={brushType}
           onCellClick={handleCellClick}
@@ -285,8 +275,6 @@ function App() {
               setBrushType={setBrushType}
               isSymmetryEnabled={isSymmetryEnabled}
               setIsSymmetryEnabled={setIsSymmetryEnabled}
-              currentShape={blueprintType}
-              setShape={handleSetShape}
               onClear={handleClear}
               onGenerate={handleGenerate}
               onExportMatrix={handleExportMatrix}

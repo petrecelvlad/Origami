@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { EvolutionService } from './EvolutionService';
-import { Organism, ShapeType, FamilyType, ChampionRecord, LineageRecord } from '../domain/types';
-import { INITIAL_SHAPE } from '../domain/constants';
+import { Organism, FamilyType, ChampionRecord, LineageRecord } from '../domain/types';
 import { useSimulationEngine } from './useSimulationEngine';
 import { usePhysicsSettings } from './usePhysicsSettings';
 import { usePersistence } from './usePersistence';
@@ -191,8 +190,9 @@ export function useEvolutionLoop() {
         engine.statsRef.current.distance = 0;
     });
 
-    service.initializePopulation(INITIAL_SHAPE);
-    
+    service.initializePopulation();
+
+
     // Use persistence.autoloadLineage
     persistence.autoloadLineage().catch(err => {
         console.error("Failed to load vault", err);
@@ -207,12 +207,6 @@ export function useEvolutionLoop() {
     };
   }, []); // orchestration
 
-  const reset = useCallback((shape: ShapeType) => {
-    engine.reset(shape);
-    trackedLeaderIdRef.current = null;
-    setTrackedLeaderId(null);
-  }, [engine]);
-  
   const evolve = useCallback(() => {
     engine.evolve();
   }, [engine]);
@@ -261,7 +255,6 @@ export function useEvolutionLoop() {
     ...persistence,
     trackedLeaderId,
     spawnCustom,
-    reset,
     evolve,
     getLineageRecord,
     familyOrder,

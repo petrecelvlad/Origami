@@ -1,21 +1,19 @@
 import React from 'react';
 import { Icon } from './Icons';
-import { ShapeType, CellType } from '../domain/types';
+import { CellType } from '../domain/types';
 import { EditorTool } from '../App';
 
 interface ToolDockProps {
   status: 'EDITING' | 'SIMULATING';
   editorTool: EditorTool;
   setEditorTool: (t: EditorTool) => void;
-  
+
   brushType: CellType;
   setBrushType: (c: CellType) => void;
 
   isSymmetryEnabled: boolean;
   setIsSymmetryEnabled: (s: boolean) => void;
 
-  currentShape: ShapeType;
-  setShape: (s: ShapeType) => void;
   onClear: () => void;
   onGenerate: (type: string) => void;
   onExportMatrix: () => void;
@@ -30,8 +28,6 @@ export const ToolDock: React.FC<ToolDockProps> = ({
   setBrushType,
   isSymmetryEnabled,
   setIsSymmetryEnabled,
-  currentShape,
-  setShape,
   onClear,
   onGenerate,
   onExportMatrix,

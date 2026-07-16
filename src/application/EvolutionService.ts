@@ -8,8 +8,8 @@
  * }
  */
 import { BioPhysicsEngine } from '../domain/BioPhysicsEngine';
-import { Organism, ShapeType, Node, Muscle, CellType, FamilyType, ChampionRecord, LineageRecord, BlueprintCell } from '../domain/types';
-import { ShapeFactory } from '../domain/ShapeFactory';
+import { Organism, Node, Muscle, CellType, FamilyType, ChampionRecord, LineageRecord, BlueprintCell } from '../domain/types';
+import { BlueprintService } from '../domain/BlueprintService';
 import { GeneticOperator, FAMILY_COLORS } from '../domain/genetics/GeneticOperator';
 import { IFitnessEvaluator, StandardFitnessEvaluator } from '../domain/fitness/FitnessEvaluator';
 import { BrainController } from '../domain/neural/BrainController';
@@ -184,12 +184,14 @@ export class EvolutionService {
       this.ecosystemService.refreshAll(this.population, this.getEcosystemConfig());
   }
 
-  public initializePopulation(shape: ShapeType): void {
-    this.deadPool = []; 
+  public initializePopulation(): void {
+    this.deadPool = [];
     this.population = [];
-    this.lineage.initialize(`Subject ${shape}`);
-    this.template = ShapeFactory.create(shape, 'template');
-    
+    this.lineage.initialize('Spider');
+    // The canonical body: BlueprintService defaults to the spider shell.
+    this.template = new BlueprintService().generateOrganism('template');
+
+
     // Inject initial meta into template genome
     if (this.template.neuralGenome) {
         this.template.neuralGenome.meta = {
@@ -428,7 +430,6 @@ export class EvolutionService {
           lineageId: this.lineage.lineageId,
           projectName: this.lineage.projectName,
           generation: this.lineage.generation,
-          shape: this.template?.shape ?? ShapeType.CUBE,
           blueprint: this.getBlueprintCells(),
           champions: this.lineage.getAllChampions(),
           updatedAt: Date.now()
@@ -441,10 +442,7 @@ export class EvolutionService {
       const best = sorted[0];
 
       const championRecord = Serializer.serializeChampion(best);
-      const cleanCopy = Serializer.buildOrganism(
-          { shape: this.template?.shape ?? best.shape, blueprint: this.getBlueprintCells() },
-          championRecord
-      );
+      const cleanCopy = Serializer.buildOrganism({ blueprint: this.getBlueprintCells() }, championRecord);
       cleanCopy.generation = this.currentGeneration;
 
       return cleanCopy;
@@ -826,7 +824,6 @@ export class EvolutionService {
 
       const clone: Organism = pooled || {
           id: newId,
-          shape: template.shape,
           nodes: newNodes,
           muscles: newMuscles,
           neuralGenome: newGenome,
@@ -850,8 +847,7 @@ export class EvolutionService {
 
       if (pooled) {
           clone.id = newId;
-          clone.shape = template.shape;
-          clone.nodes = newNodes; 
+          clone.nodes = newNodes;
           clone.muscles = newMuscles;
           clone.neuralGenome = newGenome;
           clone.fitness = 0;

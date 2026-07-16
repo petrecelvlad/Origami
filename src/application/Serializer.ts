@@ -32,9 +32,8 @@ export class Serializer {
      * (blueprint DNA) + one champion brain. Every creature built this way
      * spawns from the identical shell in the identical pose.
      */
-    public static buildOrganism(lineage: Pick<LineageRecord, 'shape' | 'blueprint'>, champion: ChampionRecord): Organism {
+    public static buildOrganism(lineage: Pick<LineageRecord, 'blueprint'>, champion: ChampionRecord): Organism {
         const blueprint = new BlueprintService();
-        blueprint.setType(lineage.shape);
         blueprint.loadCells(lineage.blueprint);
 
         const org = blueprint.generateOrganism(`champ_${champion.family}_${Date.now()}`, {

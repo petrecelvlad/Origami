@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { Grid, PerspectiveCamera, OrbitControls } from '@react-three/drei';
 import { SimulationLayer } from './SimulationLayer';
 import { BlueprintView } from './BlueprintView';
-import { Organism, ShapeType, CellType, BlueprintCell } from '../../domain/types';
+import { Organism, CellType, BlueprintCell } from '../../domain/types';
 import { EditorTool } from '../../App';
 import * as THREE from 'three';
 import { usePhysicsConfig } from '../../application/PhysicsConfigContext';
@@ -16,7 +16,6 @@ interface UnifiedStageProps {
     trackedLeaderId?: string | null;
     // Edit Props
     blueprintCells: BlueprintCell[];
-    blueprintType: ShapeType;
     editorTool: EditorTool;
     brushType?: CellType;
     onCellClick: (x: number, y: number, z: number, isRight: boolean) => void;
@@ -36,7 +35,6 @@ export const UnifiedStage: React.FC<UnifiedStageProps> = ({
     showBestOnly,
     trackedLeaderId,
     blueprintCells,
-    blueprintType,
     editorTool,
     brushType,
     onCellClick
@@ -70,10 +68,9 @@ export const UnifiedStage: React.FC<UnifiedStageProps> = ({
                 ) : (
                     <>
                         <OrbitControls makeDefault target={[0, 0, 0]} />
-                        <BlueprintView 
+                        <BlueprintView
                              cells={blueprintCells}
                              onCellClick={onCellClick}
-                             currentType={blueprintType}
                              editorTool={editorTool}
                              brushType={brushType || CellType.BODY}
                         />

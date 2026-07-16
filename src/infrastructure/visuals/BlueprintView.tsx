@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useThree, ThreeEvent } from '@react-three/fiber';
-import { GridCoord, ShapeType, CellType, BlueprintCell } from '../../domain/types';
+import { GridCoord, CellType, BlueprintCell } from '../../domain/types';
 import { 
   Color, Matrix4, BoxGeometry, 
   MeshStandardMaterial, InstancedMesh 
@@ -13,12 +13,11 @@ const COL_HEAD = new Color('#ef4444'); // Red
 const COL_FOOT = new Color('#22c55e'); // Green
 
 export const BlueprintView: React.FC<{
-    cells: BlueprintCell[]; 
+    cells: BlueprintCell[];
     onCellClick: (x: number, y: number, z: number, isRight: boolean) => void;
-    currentType: ShapeType;
     editorTool: EditorTool;
     brushType: CellType;
-}> = ({ cells, onCellClick, currentType, editorTool, brushType }) => {
+}> = ({ cells, onCellClick, editorTool, brushType }) => {
 
   const { camera, raycaster, pointer, scene } = useThree();
   const [hoverCoord, setHoverCoord] = useState<GridCoord | null>(null);
@@ -60,7 +59,7 @@ export const BlueprintView: React.FC<{
           meshRef.current.computeBoundingSphere();
       }
       
-  }, [cells, currentType, tempMat]);
+  }, [cells, tempMat]);
 
   // Handle ghost color update
   useEffect(() => {

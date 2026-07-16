@@ -1,21 +1,19 @@
-import { ShapeType, Organism, Node, Muscle, NeuralGenome, GridCoord, CellType, BlueprintCell } from './types';
+import { Organism, Node, Muscle, NeuralGenome, GridCoord, CellType, BlueprintCell, Vec3 } from './types';
 import { VectorOps } from './math';
-import { LatticeFactory, ILatticeStrategy } from './lattice/LatticeStrategy';
 import { GeneticOperator } from './genetics/GeneticOperator';
+
+interface Neighbor {
+    coord: GridCoord;
+}
 
 export class BlueprintService {
   private cells: Map<string, CellType> = new Map();
-  private type: ShapeType = ShapeType.CUBE;
-  private readonly GRID_SIZE = 10; 
+  private readonly GRID_SIZE = 10;
   private geneticOperator: GeneticOperator;
 
   constructor() {
     this.geneticOperator = new GeneticOperator();
     this.applySpider();
-  }
-
-  public setType(t: ShapeType) {
-    this.type = t;
   }
 
   public clear() {
@@ -160,26 +158,6 @@ export class BlueprintService {
     
     this.applyMirrorX();
     this.normalizeHeight();
-  }
-
-  public applyWorm(length: number) {
-      let curr = { x: 0, y: 0, z: 0 };
-      this.setCell(0, 0, 0, CellType.FOOT); // Tail anchor
-      
-      for(let i=0; i<length; i++) {
-          const axis = Math.floor(Math.random() * 3);
-          const dir = Math.random() > 0.5 ? 1 : -1;
-          
-          if (axis === 0) curr.x += dir;
-          if (axis === 1) curr.y += dir;
-          if (axis === 2) curr.z += dir;
-          if (Math.abs(curr.x) > 4) curr.x -= dir;
-          if (Math.abs(curr.y) > 4) curr.y -= dir;
-          if (Math.abs(curr.z) > 4) curr.z -= dir;
-          
-          const type = i === length - 1 ? CellType.HEAD : (curr.y === 0 ? CellType.FOOT : CellType.BODY);
-          this.setCell(curr.x, curr.y, curr.z, type);
-      }
   }
 
   public applySpider() {
@@ -386,8 +364,7 @@ export class BlueprintService {
   
   public importOrganism(org: Organism) {
       this.clear();
-      this.type = org.shape || ShapeType.CUBE; 
-      
+
       let needsVoxelization = false;
       for (const node of org.nodes) {
           if (node.originalGridCoord) {
@@ -412,11 +389,36 @@ export class BlueprintService {
       }
   }
 
+  // --- LATTICE (cell-grid -> world-space + adjacency) ---
+  // Cartesian grid, orthogonal + face-diagonal neighbors. The only lattice
+  // this project has ever used — folded in directly rather than kept behind
+  // a strategy interface with one implementation.
+
+  private gridToWorld(coord: GridCoord, scale: number): Vec3 {
+      return {
+          x: coord.x * scale,
+          y: coord.y * scale + 0.5,
+          z: coord.z * scale
+      };
+  }
+
+  private getNeighbors(coord: GridCoord): Neighbor[] {
+      const offsets = [
+          {x:1, y:0, z:0}, {x:-1, y:0, z:0},
+          {x:0, y:1, z:0}, {x:0, y:-1, z:0},
+          {x:0, y:0, z:1}, {x:0, y:0, z:-1},
+          {x:1, y:1, z:0}, {x:1, y:-1, z:0},
+          {x:0, y:1, z:1}, {x:0, y:1, z:-1},
+          {x:1, y:0, z:1}, {x:1, y:0, z:-1}
+      ];
+      return offsets.map(o => ({
+          coord: { x: coord.x + o.x, y: coord.y + o.y, z: coord.z + o.z }
+      }));
+  }
+
   // --- EXPORT TO PHYSICS WITH BRAIN GRAFTING ---
 
   public generateOrganism(id: string, source?: { neuralGenome: NeuralGenome; generation?: number }): Organism {
-      const strategy: ILatticeStrategy = LatticeFactory.getStrategy(this.type);
-      
       const nodes: Node[] = [];
       const muscles: Muscle[] = [];
       const coordToNodeId = new Map<string, string>();
@@ -434,7 +436,7 @@ export class BlueprintService {
       // Ensure the creature sits on the floor regardless of editor position
       let minY = Infinity;
       for(let i=0; i<activeCells.length; i++) {
-          const w = strategy.gridToWorld(activeCells[i], 0.8);
+          const w = this.gridToWorld(activeCells[i], 0.8);
           if(w.y < minY) minY = w.y;
       }
       const heightOffset = -minY + 0.1; // Slight float
@@ -446,7 +448,7 @@ export class BlueprintService {
           const nodeId = `n_${c.x}_${c.y}_${c.z}`;
           coordToNodeId.set(`${c.x},${c.y},${c.z}`, nodeId);
 
-          const worldPos = strategy.gridToWorld(c, scale);
+          const worldPos = this.gridToWorld(c, scale);
           worldPos.y += heightOffset;
 
           // SPECIALIZED BRICK PROPERTIES
@@ -535,7 +537,7 @@ export class BlueprintService {
           const myId = coordToNodeId.get(`${c.x},${c.y},${c.z}`);
           if (!myId) return;
 
-          const neighbors = strategy.getNeighbors(c);
+          const neighbors = this.getNeighbors(c);
           neighbors.forEach(n => {
               const nid = coordToNodeId.get(`${n.coord.x},${n.coord.y},${n.coord.z}`);
               if (nid) {
@@ -583,7 +585,6 @@ export class BlueprintService {
 
       return {
           id,
-          shape: this.type,
           nodes,
           muscles,
           neuralGenome: genome,

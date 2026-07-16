@@ -1,4 +1,3 @@
-import { ShapeType } from './types';
 import { ENGINE_CONFIG } from './EngineConfig';
 
 export const DEFAULT_SIMULATION_CONFIG = {
@@ -88,5 +87,3 @@ export const DEFAULT_EVOLUTION_CONFIG = {
   
   breedingThreshold: ENGINE_CONFIG.ecosystem.breedingThreshold,
 };
-
-export const INITIAL_SHAPE = ShapeType.CUBE;

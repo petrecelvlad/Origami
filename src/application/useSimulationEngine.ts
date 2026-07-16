@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Organism, ShapeType, FamilyType } from '../domain/types';
+import { FamilyType } from '../domain/types';
 import { EvolutionService } from './EvolutionService';
 
 /**
@@ -47,14 +47,6 @@ export function useSimulationEngine(serviceRef: React.MutableRefObject<Evolution
         odometer: 0
     });
 
-    const reset = useCallback((shape: ShapeType) => {
-        setIsRunning(false);
-        setIsFastForward(false);
-        serviceRef.current?.initializePopulation(shape);
-        setGeneration(1);
-        setFitnessHistory([]);
-    }, [serviceRef]);
-
     const evolve = useCallback(() => {
         serviceRef.current?.evolve();
         setGeneration(serviceRef.current!.currentGeneration);
@@ -67,7 +59,6 @@ export function useSimulationEngine(serviceRef: React.MutableRefObject<Evolution
         isFastForward, setIsFastForward,
         fitnessHistory, setFitnessHistory,
         statsRef,
-        reset,
         evolve
     };
 }

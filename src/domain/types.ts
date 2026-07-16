@@ -113,11 +113,6 @@ export interface FoodItem {
     targeted?: boolean;  // Is this the specific one the brain is looking at?
 }
 
-export enum ShapeType {
-  CUBE = 'CUBE', // Cartesian Lattice
-  WORM = 'WORM', // Linear
-}
-
 export enum FamilyType {
     BRUTE = 'BRUTE',       // RED: Power/Speed
     MONOLITH = 'MONOLITH', // BLUE: Stability/Balance
@@ -142,7 +137,6 @@ export interface Organism {
   id: string;
   family?: FamilyType;
   color?: string; // CSS Color or Hex
-  shape: ShapeType; // NEW: Tracks the lattice type for the Architect
   nodes: Node[];
   muscles: Muscle[];
   // The Blueprint
@@ -246,11 +240,6 @@ export interface BlueprintCell extends GridCoord {
     type: CellType;
 }
 
-export interface Blueprint {
-    cells: Map<string, CellType>; // Key "x,y,z" -> CellType
-    type: ShapeType;
-}
-
 // --- PERSISTENCE TYPES (Charter invariants 1-2) ---
 // A stored champion is a brain plus identity — never a body.
 export interface ChampionRecord {
@@ -265,7 +254,6 @@ export interface LineageRecord {
     lineageId: string;
     projectName: string;
     generation: number;
-    shape: ShapeType;
     blueprint: BlueprintCell[];
     champions: ChampionRecord[];
     updatedAt: number;
