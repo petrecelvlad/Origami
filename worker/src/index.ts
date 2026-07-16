@@ -20,6 +20,23 @@ interface ChampionRow {
   updated_at: number;
 }
 
+// Constant-time comparison: `!==` on strings short-circuits at the first
+// mismatched character, letting response timing leak how many leading
+// characters of a guessed token were correct. No nodejs_compat flag is set
+// here, so Node's crypto.timingSafeEqual isn't available - this manually
+// XORs every byte regardless of where a mismatch occurs.
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  if (aBytes.length !== bBytes.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < aBytes.length; i++) {
+    diff |= aBytes[i] ^ bBytes[i];
+  }
+  return diff === 0;
+}
+
 function isFiniteDeep(value: unknown): boolean {
   if (typeof value === "number") return Number.isFinite(value);
   if (Array.isArray(value)) return value.every(isFiniteDeep);
@@ -57,7 +74,7 @@ async function handleGetLineages(env: Env): Promise<Response> {
 async function handlePostLineage(request: Request, env: Env, lineageId: string): Promise<Response> {
   const authHeader = request.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  if (token !== env.API_TOKEN) {
+  if (!timingSafeEqual(token, env.API_TOKEN)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -95,7 +112,7 @@ async function handlePostLineage(request: Request, env: Env, lineageId: string):
 async function handlePostChampion(request: Request, env: Env, lineageId: string, family: string): Promise<Response> {
   const authHeader = request.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  if (token !== env.API_TOKEN) {
+  if (!timingSafeEqual(token, env.API_TOKEN)) {
     return new Response("Unauthorized", { status: 401 });
   }
 

@@ -5,7 +5,6 @@ import {
     Zap, Database, History, CloudUpload
 } from 'lucide-react';
 import { localVault } from '../infrastructure/local/LocalVault';
-import { championCloudVault } from '../infrastructure/cloud/ChampionCloudVault';
 import { toast } from 'sonner';
 import { FamilyType, LineageRecord } from '../domain/types';
 import { FAMILY_COLORS } from '../domain/genetics/GeneticOperator';
@@ -122,6 +121,7 @@ export const VaultPanel: React.FC<VaultPanelProps> = ({ isOpen, onClose, activeL
                                             onClick={async () => {
                                                 setCloudLoading(true);
                                                 try {
+                                                    const { championCloudVault } = await import('../infrastructure/cloud/ChampionCloudVault');
                                                     const { pushed, skipped } = await championCloudVault.pushLineageWithChampions(activeLineage);
                                                     if (pushed.length > 0) toast.success(`Pushed to Cloud: ${pushed.join(', ')}`);
                                                     if (skipped.length > 0) toast.info(`Skipped (no token / not newer): ${skipped.join(', ')}`);
