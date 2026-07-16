@@ -13,6 +13,10 @@ dist-ssr
 *.local
 worker/.wrangler
 
+# Internal docs/session logs - kept locally, not published
+/cone
+/docs
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
